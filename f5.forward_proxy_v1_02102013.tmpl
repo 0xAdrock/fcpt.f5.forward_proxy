@@ -1,0 +1,2329 @@
+cli admin-partitions {
+    update-partition Common
+}
+sys application template /Common/f5.forward_proxy {
+    actions {
+        definition {
+            html-help {
+                <p><b>Forward Proxy Template</b></p>
+<p>For improved readability, we suggest you click the Launch button to view the Help in a separate, resizable window.</p>
+<p>This template creates a complete configuration for using the BigIP LTM as an Forward (Explicit) Proxy. Before you start: </p>
+<ul>
+  <li>Check System :: Resource Provisioning to ensure that LTM (local traffic manager) is
+    provisioned.</li>
+  <li>License and provision additional BIG-IP modules (if needed).</li>
+  <li>Ensure your BigIP system has interfaces on the protected network <i>and</i> on an external-facing network.</li>
+  <li>Ensure that the BigIP system's routing table has a default route that points towards the Internet through a router on the external-facing network.</li>
+</ul>
+
+<p><b>Device and/or Traffic Groups</b></p>
+<p>If you select Advanced from the Template selection list, you can select a device group that synchronizes BIG-IP configuration data among devices and a traffic group of related objects that fail over to another device when the current device becomes unavailable.<br  />
+   <b>Note:</b> To use Device and/or Traffic Groups, you must configure them before running this iApp.</p>
+
+ <p><b>Advanced Options</b></p>
+<p>To enable advanced control features for your explicit proxy, select Yes from the list.</p>
+<p>You will need to do this to access the following features:</p>
+<ul>
+  <li>Proxy Autoconfiguration Support</li>
+  <li>Remote Logging Support</li>
+  <li>Large Proxy Population Support (SNAT Pools)</li>  
+</ul>
+
+ <p><b>Proxy Configuration</b><br />
+<p><i>Virtual Server IP Address</i><br />
+<p>Type the IP address clients will use to access the proxy. The system creates a virtual server using this address.</p>
+<p><i>Type of Proxy</i><br />
+<p>There are three proxy configuration options available to you:</p>
+<ul>
+  <li><b>CONNECT Only</b></li>
+</ul>
+This proxy type directs all traffic to a web-based proxy and supports SSL transactions using the HTTP CONNECT method.
+<ul>
+  <li><b>SOCKS Only</b></li>
+</ul>
+This proxy type uses a special method of tagging individual socket requests with a special key. This implementation supports SOCKS versions 4, 4A, and 5. Although SOCKSv5 supports UDP requests, this proxy implementation does not support that mode.
+<ul>
+  <li><b>CONNECT+SOCKS</B></li>
+</ul>
+This provides both proxy types simultaneously, creating two distinct virtual servers.</p>
+<p><i>Ports</i><br />
+<p>The default port number for the CONNECT proxy is typically port 80, and for SOCKS is 1080. You should not need to change these values, but if it is required, you may set them here.</p>
+<p><i>DNS Server</i><br />
+<p>Proxies do need to sometimes resolve hostnames to IP addresses for request coming through. Enter the IP addresses of your resolvers here; they will be added to a pool and a virtual server will be created attached to the proxy to handle lookups. You can add multiple resolvers.<p>
+<p><b>Note:</b> These resolvers need to be able to resolve external hostname records.<p>
+<p><i>Large Proxy Population Support (Advanced)</i><br />
+<p>If the proxy will be used by a large number of users, you will need to define additional addresses on your external network that can be used for address translation to the external network. This option creates a SNAT pool. By default, the proxy will use SNAT Automap, which will result in users' connections appearing to come from the BigIP's Self IP on the external-facing network.
+<p><i>DNS Caching Lifetime (Advanced)</i><br />
+<p>The proxy will attempt to cache hostnames for a short period of time to eliminate the need to repeatedly execute name resolution. This option is in <b>seconds</b>, and the default cache period is <b>60 seconds</b>.
+<p><i>Proxy Debug (Advanced)</i><br />
+<p>This option turns on logging of all proxy actions. Use with caution.</p>
+
+ <p><b>Security and Access Control</b></p>
+ <p><i>Network Control</i><br />
+<p>By default, the proxy will supply service to any address that can connect to the created virtual server address.</p>
+<p>If you wish to restrict which networks can access the external-facing network via the proxy, select this option and then configure the CIDR addresses of each network you wish to allow.</p>
+ <p><i>Port Control</i><br />
+<p>The proxy will be configured to allow ports 80 (HTTP), 443 (HTTPS), and 21 (FTP) by default. The protocols spoken over these connections will be monitored and must match the expected content. Changes to this configuration are not recommended.</p>
+<p>However - in some cases - it may be desirable to allow other alternate ports to be accessible through the proxy (e.g. port 8080 as an alternate HTTP port). If you wish to add recognized ports, select this option and add an entry to the desired section.</p>
+
+ <p><b>URL Filtering and Inspection</b></p>
+<p>If you wish to integrate the proxy with Websense external URL filtering, enable this option.</p>
+ <p><i>Remote Websense Filtering Servers</i><br />
+ Supply the addresses of any Websense server configured to run the Filtering Engine. These addresses will be added to a pool which will be used to check all traffic traversing the proxy.</p>
+
+ <p><b>Proxy Autoconfiguration Support (Advanced)</b></p>
+<p>Enabling this option will cause the proxy to generate a proxy autoconfiguration file to requesting browser clients using the configuration supplied.</p>
+ <p><i>Plain Names</i><br />
+<p>Enabling this option forces browser clients who adopt the configuration to BYPASS the proxy when dealing with hostnames that are not fully-qualified domain names (e.g. "http://website/" rather than "http://www.website.com/").</p>
+ <p><i>URI Scheme Bypass</i><br />
+ <p>You may configure what network addresses or URL schemes will bypass the proxy and go directly to the discovered host.</p>
+ <p>The format of these addresses is in 'glob' style matching. This is represented as the FULL host and scheme portion of the URL being assessed.</p>
+ <p>For example, to make sure that all HTTPS accesses to in the 10.0.0.0/8 range bypass the proxy, you would enter 'https://10.*' below. To make the bypass occur independent of the scheme requested to the same network, you would enter '*://10.*'.</p>
+ <p><b>Note:</b> If you have enabled URL Filtering and Inspection support, then the addresses of all configured Websense filter hosts will be automatically added to this list.</p> 
+ <p><i>Hostname Bypass</i><br />
+ <p>You may configure what hostnames or domains will bypass the proxy and go directly to the discovered host.</p>
+ <p>The format of these hostnames is in 'glob' style matching.</p>
+ <p>For example, to make sure that all requested hosts in the test.com domain bypass the proxy, enter '*.test.com'. You may also enter fully-qualified hostnames here as well (e.g., 'www.test.com').</p>
+            }
+            implementation {
+                #################################################################################
+### FORWARD PROXY IAPP
+### Version: 1.0 - F5 Networks
+### 
+### Makes use of WISP API - Copyright 2013 Websense, Inc.  All Rights Reserved.
+### Functionality: Supports a generic, anonymous CONNECT or SOCKS proxy.
+###
+
+# IAPP SETUP
+
+# Set up initial variables, subroutines and constants needed
+# to execute this iApp.
+
+tmsh::include "f5.app_utils"
+
+tmsh::log_dest file
+tmsh::log_level crit
+
+set NO_ANSWER "No"
+set YES_ANSWER "Yes"
+set WAN_OPTION "WAN"
+set EMPTY_STRING "EMPTY_STRING_NO_VALUE_PRESENT"
+set ADDR_FIELD "addr"
+set PORT_FIELD "port"
+set RATIO_FIELD "ratio"
+set CONNECTION_LIMIT_FIELD "connection_limit"
+set HOST_FIELD "host"
+set ONE_SPACE " "
+set HTTP_11_VERSION_STRING "\"Version 1.1\""
+
+proc tmsh_create { component arguments } {
+    regsub -all {\"} $arguments "\\\"" arguments
+    regsub -all {\[} $arguments "\\\[" arguments
+    regsub -all {\]} $arguments "\\\]" arguments
+    regsub -all {\$} $arguments "\\\$" arguments
+    tmsh::run_proc f5.app_utils:do_tmsh_create "\"$component\"" "\"$arguments\""
+}
+
+proc tmsh_modify { component arguments } {
+    regsub -all {\"} $arguments "\\\"" arguments
+    regsub -all {\[} $arguments "\\\[" arguments
+    regsub -all {\]} $arguments "\\\]" arguments
+    regsub -all {\$} $arguments "\\\$" arguments
+    tmsh::run_proc f5.app_utils:do_tmsh_modify "\"$component\"" "\"$arguments\""
+}
+
+proc setup_irules { } {
+
+	# PROXY IRULES
+
+	# This is the main functionality of the proxy support. There are three
+	# total iRules here:
+	#  - Proxy Configuration: Contains global variables used to support
+	#         the other iRules
+	#  - Explicit Proxy: Supports a CONNECT-style proxy
+	#  - SOCKS Proxy: Supports a SOCKS 4/4a/5-style proxy
+
+	if { [info exists ::proxy__proxy_enable_debug] } {
+		if { $::proxy__proxy_enable_debug == $::YES_ANSWER } {
+			set enable_debug 1
+		} else {
+			set enable_debug 0
+		}
+	} else {
+		set enable_debug 0
+	}
+
+
+####################################################################################################################	
+###
+###  START OF PROXY CONFIGURATION SUPPORT IRULE
+###
+
+set config_code {
+
+ when RULE_INIT {
+## HTTP Explicit Proxy - Websense Integrated - v1.0
+##
+## This iRule will act as a forward (or "explicit") proxy for HTTP requests.
+##
+## Set the virtual server that this iRule is connected to as the proxy 
+## server for your web browser.  This can handle any HTTP request and also
+## FTP and HTTPS requests through the CONNECT method.
+##
+## Remember to set a SNAT pool in addition to selecting "Address Translation"
+## and "Port Translation" in your proxy VIP.
+##
+## CMP compatible:  Yes
+## 
+	set static::proxy_brand_${tmsh::app_name} "iProxy-WISP"
+	set static::proxy_irule_version_${tmsh::app_name} 1.1
+
+	# ---------- LOGGING
+	# Activate debug logging for the proxy. This could fill up your local logs very
+	# quickly on an actively used proxy, so be careful.
+	set static::proxy_debug_${tmsh::app_name} ${enable_debug}
+
+	# Enable a syslog destination for proxied requests via high-speed logging. This
+	# should be the name of a pool.
+	set static::enable_logging_${tmsh::app_name} $::enable_logging
+	set static::log_destination_${tmsh::app_name} syslog_pool
+	set static::facility_${tmsh::app_name} 174
+
+	# ---------- NAME RESOLUTION
+	# Set a resolver IP address or a resolver VIP to use. Use the name of the virtual
+	# you create for you DNS resolver pool here if desired, or set a single IP address to use.
+	set static::resolver_ip_${tmsh::app_name} "$::resolver_virtual"
+
+	# This iRule will cache hostname lookups so the resolver doesn't need to be queried for
+	# successive accesses. This is independent of the DNS record's TTL, so a shorter time
+	# here is probably better. Value is in seconds.
+	set static::resolver_cache_lifetime_${tmsh::app_name} $::proxy_resolver_ttl
+
+	# ---------- WEB FILTERING
+	# Enable Websense filtering support. The WISP server pool must be an F5 pool.
+	# be an F5 pool. This allows us to use Oneconnect with the server integration
+	# and reduce the connection setup time to the Websense filter engine.
+	set static::support_websense_${tmsh::app_name} $::enable_websense
+	set static::wsp_wisp_pool_${tmsh::app_name} $::websense_server_pool
+	set static::wsp_wisp_port_${tmsh::app_name} "15868"
+	# Don't touch this. You have been warned.
+	set static::wsp_api_version_${tmsh::app_name} 0x0420
+
+	# ---------- SECURITY
+	# Specify a datagroup containing network locations that we do not proxy for. This is
+	# useful if you want the proxy not to be used to forward to internal networks.
+	set static::check_access_blocking_${tmsh::app_name} $::enable_acl
+	set static::block_access_datagroup_${tmsh::app_name} "$::proxy_acl_datagroup_name"
+
+	# Set the ports that you wish to allow for the various protocols spoken by this proxy.
+	# Without this, it's possible to use the CONNECT proxy to forward arbitrary connections
+	# on all ports, which is bad. It's best to select only well-known ports here.
+	set static::allow_http_to_ports_${tmsh::app_name} { $::http_ports }
+	set static::allow_https_to_ports_${tmsh::app_name} { $::https_ports }
+	set static::allow_ftp_to_ports_${tmsh::app_name} { $::ftp_ports }
+
+	# ---------- AUTHENTICATION (APM)
+	# Use an APM policy set to authenticate and create a session based on the user's
+	# supplied credentials to the proxy.
+	#
+	# If this is not enabled, the proxy will run without requesting authentication
+	# credentials. If it is enabled, successful logons will be supplied as data to
+	# both logging and web filtering integrations.
+	set static::support_apm_${tmsh::app_name} 0
+	set static::apm_transparent_${tmsh::app_name} 0
+
+	# ---------- PROXY AUTOCONFIGURATION
+	# When enabled, causes the proxy to be able to respond to PAC file requests for both
+	# standard PAC and WPAD .dat configurations. It builds the PAC file content dynamically
+	# based on user requirements.
+	#
+	# If your proxy setup has a registered hostname, then you should set it here -- 
+	# otherwise, you can safely use the IP address. Use of a hostname is valuable if you
+	# have multiple on-network proxies and want the user to select from the group.
+	set static::support_proxy_autoconfiguration_${tmsh::app_name} $::enable_pac
+	set static::proxy_name_${tmsh::app_name} "$::proxy__proxy_ip"
+	set static::plain_name_direct_${tmsh::app_name} $::enable_plainname
+	set static::direct_networks_${tmsh::app_name} { $::autoconfig_dn }
+	set static::direct_hostnames_${tmsh::app_name} { $::autoconfig_dh }
+	set static::proxy_autoconfig_base_${tmsh::app_name} {
+function FindProxyForURL(url, host) {
+\${plainname_section}
+\${network_section}
+\${hostname_section}
+        return "PROXY \$\{static::proxy_name_${tmsh::app_name}\}:\${proxy_port}";
+}
+	}
+
+	# ---------- ERROR PAGES
+	# You can change these to suit your tastes, but do not change the variables
+	# contained within the page content.
+	#
+	# Error to display when the hostname lookup fails to resolve to an IP address.
+    set static::host_not_found_error_${tmsh::app_name} {
+		<!DOCTYPE html>
+		<html><head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Error: host not found.</title>
+		<style>
+		\$\{static::embedded_css_${tmsh::app_name}\}
+		</style>
+		</head><body id="pageBody">
+		<div style="clear: both; overflow: hidden; height=1px;"></div>
+		<!--\\\[if lt IE 7\\\]> <div style="width: 725px;"> <!\\\[endif\\\]-->
+		<div style="border: 1px solid #285EA6; width: 95%; max-width: 700px; overflow: hidden; margin-top: 1px; margin-left: 10px; background-color: #EEF2F7;">
+			<div id="openWindow">
+			<h1 class="error">Error: Host not found.</h1>
+			<p class="label">Reason:</p>
+			<p class="first-option" id="reason-text" style="display: block;">Your request has been cancelled because this system could not locate an address for the website you entered. Please check your website address and retry your request.</p>		<div id="options">
+			<p class="label">URL/Host:</p>
+			<p id="url-text">\${host}</p>
+			<div id="options">
+				<p class="label">Options:</p>
+				<form class="first-option" name="BackForm" action="">
+					<p>Click <b>Go Back</b> or use the browser's Back button to return to the previous page. <input type="button" value="      Go Back      " onClick="javascript:history.back()" name="ws-back"></p>
+				</form>
+				</div>
+				<div>
+					<address style="float: right; padding-top: 180px;"><font color="grey" size=-4>\$static::proxy_brand_${tmsh::app_name}/\$static::proxy_irule_version_${tmsh::app_name}</font></address>
+				</div>
+			</div>
+		</div>
+		<!--\\\[if lt IE 7\\\]> </div> <!\\\[endif\\\]-->
+		<div id="light" class="white_content"></div>
+		<div id="fade" class="black_overlay"></div>
+		<div style="clear: both;"></div>
+		</body></html>
+	}
+
+	# Error to display when the remote host does not appear to respond to the user's
+	# request.
+	set static::host_not_responding_error_${tmsh::app_name} {
+		<!DOCTYPE html>
+		<html><head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Error: host not responding.</title>
+		<style>
+		\$\{static::embedded_css_${tmsh::app_name}\}
+		</style>
+		</head><body id="pageBody">
+		<div style="clear: both; overflow: hidden; height=1px;"></div>
+		<!--\\\[if lt IE 7\\\]> <div style="width: 725px;"> <!\\\[endif\\\]-->
+		<div style="border: 1px solid #285EA6; width: 95%; max-width: 700px; overflow: hidden; margin-top: 1px; margin-left: 10px; background-color: #EEF2F7;">
+			<div id="openWindow">
+			<h1 class="error">Error: Host not responding.</h1>
+			<p class="label">Reason:</p>
+			<p class="first-option" id="reason-text" style="display: block;">Your request has been cancelled because this system could not connect to the website you entered. This could be due to network conditions or the site could be down. Please check your website address and retry your request.</p>
+			<p class="label">URL/Host:</p>
+			<p id="url-text">\${host}</p>
+			<div id="options">
+				<p class="label">Options:</p>
+				<form class="first-option" name="BackForm" action="">
+					<p>Click <b>Go Back</b> or use the browser's Back button to return to the previous page. <input type="button" value="      Go Back      " onClick="javascript:history.back()" name="ws-back"></p>
+				</form>
+				</div>
+				<div>
+					<address style="float: right; padding-top: 180px;"><font color="grey" size=-4>\$static::proxy_brand_${tmsh::app_name}/\$static::proxy_irule_version_${tmsh::app_name}</font></address>
+				</div>
+			</div>
+		</div>
+		<!--\\\[if lt IE 7\\\]> </div> <!\\\[endif\\\]-->
+		<div id="light" class="white_content"></div>
+		<div id="fade" class="black_overlay"></div>
+		<div style="clear: both;"></div>
+		</body></html>
+	}
+
+	# Error to display if the request remote host is on the list of networks to 
+	# disallow through the proxy.
+	set static::host_disallowed_error_${tmsh::app_name} {
+		<!DOCTYPE html>
+		<html><head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Error: host not allowed.</title>
+		<style>
+		\$\{static::embedded_css_${tmsh::app_name}\}
+		</style>
+		</head><body id="pageBody">
+		<div style="clear: both; overflow: hidden; height=1px;"></div>
+		<!--\\\[if lt IE 7\\\]> <div style="width: 725px;"> <!\\\[endif\\\]-->
+		<div style="border: 1px solid #285EA6; width: 95%; max-width: 700px; overflow: hidden; margin-top: 1px; margin-left: 10px; background-color: #EEF2F7;">
+			<div id="openWindow">
+			<h1 class="security">Error: Host not allowed.</h1>
+			<p class="label">Reason:</p>
+			<p class="first-option" id="reason-text" style="display: block;">Your request has been cancelled your network administrators do not allow connections from your network. Please check your configuration and if you feel you have reached this page in error, retry your request.</p>
+			<p class="label">URL/Host:</p>
+			<p id="url-text">\${host}</p>
+			<div id="options">
+				<p class="label">Options:</p>
+				<form class="first-option" name="BackForm" action="">
+					<p>Click <b>Go Back</b> or use the browser's Back button to return to the previous page. <input type="button" value="      Go Back      " onClick="javascript:history.back()" name="ws-back"></p>
+				</form>
+				</div>
+				<div>
+					<address style="float: right; padding-top: 180px;"><font color="grey" size=-4>\$static::proxy_brand_${tmsh::app_name}/\$static::proxy_irule_version_${tmsh::app_name}</font></address>
+				</div>
+			</div>
+		</div>
+		<!--\\\[if lt IE 7\\\]> </div> <!\\\[endif\\\]-->
+		<div id="light" class="white_content"></div>
+		<div id="fade" class="black_overlay"></div>
+		<div style="clear: both;"></div>
+		</body></html>
+	}
+
+	# Error to display if the request remote host is on the list of networks to 
+	# disallow through the proxy.
+	set static::port_disallowed_error_${tmsh::app_name} {
+		<!DOCTYPE html>
+		<html><head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Error: port not allowed.</title>
+		<style>
+		\$\{static::embedded_css_${tmsh::app_name}\}
+		</style>
+		</head><body id="pageBody">
+		<div style="clear: both; overflow: hidden; height=1px;"></div>
+		<!--\\\[if lt IE 7\\\]> <div style="width: 725px;"> <!\\\[endif\\\]-->
+		<div style="border: 1px solid #285EA6; width: 95%; max-width: 700px; overflow: hidden; margin-top: 1px; margin-left: 10px; background-color: #EEF2F7;">
+			<div id="openWindow">
+			<h1 class="security">Error: Port request not allowed.</h1>
+			<p class="label">Reason:</p>
+			<p class="first-option" id="reason-text" style="display: block;">Your request has been cancelled your network administrators do not allow connections via this port. Please check your configuration and/or website address and if you feel you have reached this page in error, retry your request.</p>
+			<p class="label">URL/Host:</p>
+			<p id="url-text">\${host}:\${port}</p>
+			<div id="options">
+				<p class="label">Options:</p>
+				<form class="first-option" name="BackForm" action="">
+					<p>Click <b>Go Back</b> or use the browser's Back button to return to the previous page. <input type="button" value="      Go Back      " onClick="javascript:history.back()" name="ws-back"></p>
+				</form>
+				</div>
+				<div>
+					<address style="float: right; padding-top: 180px;"><font color="grey" size=-4>\$static::proxy_brand_${tmsh::app_name}/\$static::proxy_irule_version_${tmsh::app_name}</font></address>
+				</div>
+			</div>
+		</div>
+		<!--\\\[if lt IE 7\\\]> </div> <!\\\[endif\\\]-->
+		<div id="light" class="white_content"></div>
+		<div id="fade" class="black_overlay"></div>
+		<div style="clear: both;"></div>
+		</body></html>
+	}
+
+	# Error to display if the request remote host uses an unrecognized/unsupported
+	# method.
+	set static::unrecognized_method_error_${tmsh::app_name} {
+		<!DOCTYPE html>
+		<html><head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Error: host not allowed.</title>
+		<style>
+		\$\{static::embedded_css_${tmsh::app_name}\}
+		</style>
+		</head><body id="pageBody">
+		<div style="clear: both; overflow: hidden; height=1px;"></div>
+		<!--\\\[if lt IE 7\\\]> <div style="width: 725px;"> <!\\\[endif\\\]-->
+		<div style="border: 1px solid #285EA6; width: 95%; max-width: 700px; overflow: hidden; margin-top: 1px; margin-left: 10px; background-color: #EEF2F7;">
+			<div id="openWindow">
+			<h1 class="security">Error: Method not allowed.</h1>
+			<p class="label">Reason:</p>
+			<p class="first-option" id="reason-text" style="display: block;">Your request has been cancelled your network administrators do not allow this method to access remote sites. Please check your configuration and if you feel you have reached this page in error, retry your request.</p>
+			<p class="label">URL/Host:</p>
+			<p id="url-text">\${host}</p>
+			<div id="options">
+				<p class="label">Options:</p>
+				<form class="first-option" name="BackForm" action="">
+					<p>Click <b>Go Back</b> or use the browser's Back button to return to the previous page. <input type="button" value="      Go Back      " onClick="javascript:history.back()" name="ws-back"></p>
+				</form>
+				</div>
+				<div>
+					<address style="float: right; padding-top: 180px;"><font color="grey" size=-4>\$static::proxy_brand_${tmsh::app_name}/\$static::proxy_irule_version_${tmsh::app_name}</font></address>
+				</div>
+			</div>
+		</div>
+		<!--\\\[if lt IE 7\\\]> </div> <!\\\[endif\\\]-->
+		<div id="light" class="white_content"></div>
+		<div id="fade" class="black_overlay"></div>
+		<div style="clear: both;"></div>
+		</body></html>
+	}
+
+	# CSS to be embedded in each error page. You can modify this to suit your environment.
+	# By default, it resembles the standard Websense block page.
+	set static::embedded_css_${tmsh::app_name} {
+body { font-family: Arial, Helvetica, sans-serif; font-size: 12pt; padding: 0px;
+		background: #EEF2F7 5px 5px no-repeat; margin: 5px 7px;
+}
+h1 {
+	font-size: 1.2em;
+	border-bottom: 1px solid #8c8c8c;
+	padding-bottom: 6px;
+	margin: 0px 0px 15px 30px;
+}
+h1.security {
+	border: 0px;
+	background: #faf8c9 url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAMAAAAM7l6QAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAwBQTFRF/4xT3AEB/51q5Sga3R4e96CK3gsI9tWt9vb1/7SU84xk/ayS3hER/rqo/rKC+Om9/6t6+/v66GlU7u7q9XxK7KJ29MOe63pj/2pB6X5a+uzs82I57Yls3Csr5ubm872Z/VIl2tra/PDu6z4o60It6FY59XNF8Vgw5opl75x+/69+9dKq/66F/6Bq/7qi+NLN+q1+6GZT/4FP76GD/4tr+/Ty+ubk/Vkt8rOR/3RN/pFg/pdn9r6+62ZH7l9C7WFI/39M8ZWF81o4+e7B8q5/9Mul/o5d5pRv9czM7Y1zzc3N6nZe+7On9ql54x4V+IBO6WVS6mRN+vjJ/////6Z1/5NX/6d3/4dV/5lf+M/P+a6k/7uo/4xb/04f/76r+vXG/v7+/6Jw/5lg7pZ68a6N/4VP9+K3/4hR/Ipd/bio9c+o8bCP8reU8KmJ6WVQ/f38/3xK992z1dXV9+O49KCW/4JN9tiw0pub+/v7+6Rz656Q63pQ/6uI6o9i/6OD+M7H9+zq6GdT8Fs9+ad39Vst+tvU6K+i4uLiyLu78XZX+X9W/3lJ6Xlf8bq60dHR721K5Zxy7ZF272hN7qBz8JOI+fPF6G1t+OW675iN6cDA6+rn85+V72FE82hH8GtN72xQ+aqa9LKu5Ydm6YZm1Wdn7INr86Sk96uk8oVW9Kur9IFe5npf8I596XRU/YBb9LGx7IdZ9Ly28KeH7U028V9B48i+9m4//GE1/20991Il+aeN/1cp+YRT/oFR+vr65aB19c2m7qd591Yx/7Sf+5Jj/JVj/beo5Y9/7oNx/qV0+49e/ohZ/25H63Fx9q1+6WhS7Zdo6WtV7GpS/5h29JB09pR4+6h4+Jt72rGx5WZM75xu73lK83xV/31Z+HxM7mlH9rCA9/f34djR+qNz+6Bu8/Pz66l7+fHD96eZ/ryq8qye8pyK/YBO/4FM4jAw6+Xi6mZQ63197U0r51FR5l5e6Hpb84Vj73lc893b9Mii8Y1p/4ho76qq/4Zm81096mpNhgtE7AAAAFN0Uk5T/////////////////////////////////////////////////////////////////////////////////////////////////////////////wBmiX5ZAAACfElEQVR42mIIwgsYwCR/SpYzkIovs8hmfw5kOLNbpCGk2QOd7AINDQ0D7J2c7POAjDx7J3sxuLTmIZMz5rGxsQoSf39LKAAZu8/8VpCBScvPsYzGAHebsqHSS825X/JGAUHmSxDwAbKOvTy8MyAeLK1tbxn3clkkEKz0iYuLW24DZK3PjFtnJwaWNpa+rKf3Qj84ONisRE9vwcLg4IQfQEaduidYWnx7DScnt6NZfnDwRlbuKUrBHO9n7OLk5GwxjAdK83/YoQME1x1N84NN11ypDxacVXUVJKIWWAaUZp/UHQYCXK8qEoJbXwcHz2r7Bha4ZysGlHad5KALAkz9+oJA+4OFt94/Chbwt80BSovNM4oAA39VpYrgYI5HN0WSIiKSkpL8bS2A0gfmv2UIBQPpE0DN+45LQ3gMIv/lgdKFlwoKHEpT09MZPs0GGd7AvC09PbXUoUDtfxZQOr5xrxEYKH8ODn4IdN4fZjD3ze3z/CB/e3aFg4ATj1Kw3I2Z+4KDv6iA+HuqxcHBIt8ZAwSnmW2CnxbJyj6sCJZi+QcUWLE2FyztLGQFBMpng4MVlygrf3yYENzL7GZ1asPFYkiM5a6ytm56FxwsV86ckeHnATR+mrI1l2QyNEKnX7Q+wuPR7tXBMpeJacs7Ra++Itk7tRe1Yakl5fuTOX6MjGybE4FAhREIVC583YRIisZcj0+GIIHKWxqNUxHShZq/mgUQ4NpkDSFXpIQcVKYp42ugBQW+ohqNrsjpPCgozdh78jk+EDA4OGF1snYQqnRQUI7QYlGXBy7P9i8SSkHLJWDgbOHd4+6+WmhTcRA2aSDISp74Mx4zj+EEAAEGAGf5Qi4arzP2AAAAAElFTkSuQmCC) 5px 3px no-repeat;
+	margin: 5px 5px 15px 5px;
+	padding: 7px 7px;
+	text-indent: 33px;
+}
+h1.error {
+	border: 0px;
+	background: #ffffff url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAMAAAAM7l6QAAAAA3NCSVQICAjb4U/gAAAB5lBMVEX//////PH39/f38/Lw9Pj/8ufx8vXv8/ju8vfu8fTv7+/p7fHm5ub/4dbh4ePb4OTe3t7a3eD/0MTV2dzX2NnQ19rO19vV1tfO1djQ09T/wrfOz8/Izc7HzdDuwLbbxLv/ubD/taW8xMXRv7bAwcD/rKPHurK6vcC0vb24ur24urzjqJ+vs7X/mZn/lI2qq6ylqKf/j4mkpab2j4iapqacpKX+i4Swm5Ppi4T+g32VnZ6Ompnng37/fHXcg3zRhoCOlpaMlpbVgXv/dnDAhn+yioH/cmt+j4+Fi4t/jIuEior/Zmb/ZF51h4Z+gX9wgYD+WlR1e3p4eXf/U0//UExrdHOuYlxtcG+gYFr/REKjWFRmZmb/PDjlQT+QVVFkYFppXFb/MzO6RD+oSEOGUU1fWlVOXV5SW1nwMC2ES0X/KSZVVVVOVlKqPjqXQj7/IyGuNzRTUEqdOzb/Hxw5TE1TQz//EhGxJySHMCw2RUb1EA5FQDuGKig7OjU0OztLNDFnKCQpOTkrNjQzMzMgNjUrNDIhNDOgDw46JSEqKSUSLSwcKipZGhYxJB8nJCEWKCQfIyCOAQEnHhtKEg8XHBxEDw8QGBhmAABQBQVVAAATDw9KAAAAEhFDAAAaCgkRCAcHBwUAAAD4wBcmAAAACXBIWXMAAA50AAAOdAFrJLPWAAAAFnRFWHRDcmVhdGlvbiBUaW1lADA4LzIxLzA3cSoIoQAAABh0RVh0U29mdHdhcmUAQWRvYmUgRmlyZXdvcmtzT7MfTgAABBF0RVh0WE1MOmNvbS5hZG9iZS54bXAAPD94cGFja2V0IGJlZ2luPSIgICAiIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNC4xLWMwMzQgNDYuMjcyOTc2LCBTYXQgSmFuIDI3IDIwMDcgMjI6Mzc6MzcgICAgICAgICI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOnhhcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyI+CiAgICAgICAgIDx4YXA6Q3JlYXRvclRvb2w+QWRvYmUgRmlyZXdvcmtzIENTMzwveGFwOkNyZWF0b3JUb29sPgogICAgICAgICA8eGFwOkNyZWF0ZURhdGU+MjAwNy0wOC0yNFQyMTo0Mzo1MVo8L3hhcDpDcmVhdGVEYXRlPgogICAgICAgICA8eGFwOk1vZGlmeURhdGU+MjAwNy0wOC0yNFQyMTo0NDoyN1o8L3hhcDpNb2RpZnlEYXRlPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgICAgPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIKICAgICAgICAgICAgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIj4KICAgICAgICAgPGRjOmZvcm1hdD5pbWFnZS9wbmc8L2RjOmZvcm1hdD4KICAgICAgPC9yZGY6RGVzY3JpcHRpb24+CiAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCOReQAAAAVBJREFUKJFj4MALGAhKN2MCFGkGdDBcpJnQAUnSzAggGa4CJJtZvAJZ4NJccMATVB0tycXVrFnbZ8WCKR0Ur5aQI8KV3RoRNsGEHU2azy9VnlGuNN2gKVNXL2+CPjs7OwM7O1w6qFCZVUpIu7Q/RdfS2bZmmg5ENw8UeBWa80opKtjHGZs5u/n01GmhSvM41roKqerq6lk6u3lPbhPnQJPm8ap1UdUzA8k2dMnAnMYHBzyhnU5gvRVzlNg5MKXT6m3MbN18fApm+cKlBWCAL63DwhCoNyAkpHy+Ozu6dGivjR5INjgyJqZ9lgNUWgQKonvtdJ3d3IqmxkYmZuVPnGaEmpCzm6PM3Nxyp7RMzcgqrppRKY2WDUwnJNsmLfAUbJtbXDa7hB8jl1hPqpnnz8Ym0ThzeqMYB4Y0h8fCUE4gJdvdL8qBRZrbQBhMq2tA+AAvEXlj6e+ckgAAAABJRU5ErkJggg==) 5px 3px no-repeat;
+	margin: 5px 5px 15px 5px;
+	padding: 7px 7px;
+	border-bottom: 1px solid #8c8c8c;
+	text-indent: 33px;
+}
+p {
+	font-size: 90%;
+	margin-top: 0;
+	margin-bottom: 10px;
+	margin-left: 5px;
+	text-indent: 2px;
+}
+span.warning {
+	background: #faf8c9;
+	border: 1px solid #c4c17b;
+	margin-left: 10px;
+	padding: 2px;
+	white-space: no-wrap;
+}
+#options {
+	width: 100%;
+	border-top: 1px solid #d7w1ec;
+	border-bottom: 1px solid #d7w1ec;
+	background: #ffffff;
+	padding: 6px 0px 6px 0px;
+	clear: both;
+}
+.first_option {padding-top: 1px; margin: 0px 5px 10px 100px;}
+.label {display: block; float: left; height: 30px; width: 100px; font-weight: bold;}
+.black_overlay {
+	display: none;
+	position: absolute;
+	top: 0%;
+	left: 0%;
+	width: 100%;
+	height: 100%;
+	background-color: black;
+	z-index:1001;
+	-moz-opacity:.80;
+	opacity:.80;
+	filter: alpha(opacity=80);
+}
+.white_content {
+	display: none;
+	position: absolute;
+	top: 25%
+	left: 25%;
+	width: 25%;
+	height: 260px;
+	background-color: white;
+	zindex:1002;
+	overflow: auto;
+}
+.header {
+	background: black;
+	color: white;
+	padding: 4px;
+	font-weight: bold;
+}
+	}
+}
+
+}
+
+
+###
+###  END OF PROXY CONFIGURATION SUPPORT IRULE
+###
+####################################################################################################################
+
+
+
+####################################################################################################################
+###
+###  START OF EXPLICIT PROXY SUPPORT IRULE
+###
+
+set explicit_proxy_code {
+
+when CLIENT_ACCEPTED {
+
+	# Unset everything on a new client connection.
+	set is_connect 0
+	set is_http 0
+	set is_https 0
+	set error_occurred 0
+	set auth_holddown 0
+	set request_log_line ""
+
+	if { \$static::support_websense_${tmsh::app_name} } {
+		set disable_websense_lookups 0
+		foreach {a b c d} \[split \[IP::client_addr\] .\] break
+		set wsp_src_ip \[expr {(wide(\$a)<<24)+(\$b<<16)+(\$c<<8)+\$d}\]
+		if { \[active_members \$\{static::wsp_wisp_pool_${tmsh::app_name}\} ] > 0 } {
+			set wsp_list_cmd { set wsp_active_server_list \[active_members -list \$\{static::wsp_wisp_pool_${tmsh::app_name}\} \] }
+			eval \$wsp_list_cmd
+			set wsp_member_selection \[lindex \[lindex \$wsp_active_server_list \[expr { \[crc32 \[IP::client_addr\] \] % \[llength \$wsp_active_server_list\] } \] \] 0 \] 
+			if { not \[catch {connect -timeout 100 -idle 30 -status wsp_conn_status \$\{wsp_member_selection\}:\$\{static::wsp_wisp_port_${tmsh::app_name}\}} wsp_conn\] == 0 && \$wsp_conn ne "" } {
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Websense server not connecting." }
+				set disable_websense_lookups 1
+			}
+		} else {
+			set disable_websense_lookups 1
+		}
+	}
+
+	# Set up a logging handle for the context of this stream.
+	if { \$static::enable_logging_${tmsh::app_name} } {
+		set logging_handle \[HSL::open -proto UDP -pool \$\{static::log_destination_${tmsh::app_name}\} \]
+	}
+}
+
+
+
+
+ when HTTP_REQUEST {
+
+	# If proxy autoconfig files are requested and we are configured to hand them out, use
+	# the predefined rules and generate a config file to hand out to the user.
+	if { \$static::support_proxy_autoconfiguration_${tmsh::app_name} } {
+		if { \[string tolower \[HTTP::uri\]\] equals "/proxy.pac" || \[string tolower \[HTTP::uri\]\] equals "/wpad.dat"} {
+			if { \$static::plain_name_direct_${tmsh::app_name} } {
+				set plainname_section "        if (isPlainHostName(host))\\r\\n"
+				append plainname_section "         return \\\"DIRECT\\\";\\r\\n"
+			} else {
+				set plainname_section ""
+			}
+			set network_section_length \[llength \$static::direct_networks_${tmsh::app_name}\]
+			set network_section_count 1
+			if { \$network_section_length > 0  } {
+
+				set network_section "        if ("
+				foreach netitem \$static::direct_networks_${tmsh::app_name} {
+					append network_section "shExpMatch(url, \\"\$netitem\\")"
+					if { \$network_section_count == \$network_section_length } {
+						append network_section ")\\r\\n"
+						append network_section "         return \\\"DIRECT\\\";\\r\\n"
+					} else {
+						append network_section " || \\r\\n         "
+						incr network_section_count
+					}
+				}
+			} else {
+				set network_section ""
+			}
+			set hostname_section_length \[llength \$static::direct_hostnames_${tmsh::app_name}\]
+			set hostname_section_count 1
+			if { \$hostname_section_length > 0  } {
+				set hostname_section "        if ("
+				foreach netitem \$static::direct_hostnames_${tmsh::app_name} {
+					append hostname_section "dnsDomainIs(host, \\"\$netitem\\")"
+					if { \$hostname_section_count == \$hostname_section_length } {
+						append hostname_section ")\\r\\n"
+						append hostname_section "         return \\\"DIRECT\\\";\\r\\n\\r\\n"
+					} else {
+						append hostname_section " || \\r\\n         "
+						incr hostname_section_count
+					}
+				}
+			} else {
+				set hostname_section ""
+			}
+			set proxy_port \[TCP::local_port\]
+			HTTP::respond 200 content \[subst \$static::proxy_autoconfig_base_${tmsh::app_name}\] Content-Type "application/x-ns-proxy-autoconfig" Connection "close" Pragma "no-cache"
+			HTTP::release
+			TCP::close
+			return
+		}
+	}
+
+	# Clear all previous HTTP request items.
+	set host ""
+	set port ""
+	set new_path ""
+	set prefix ""
+	if { \$static::support_websense_${tmsh::app_name} } {
+		set wsp_message_body ""
+		set wsp_message_out ""
+		set wsp_username ""
+		set wsp_username_length 0
+		set wsp_recv_message_length 0
+		set wsp_message_length 0
+		set wsp_uri_length 0
+	}
+
+    if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "HTTP::method: \[HTTP::method\]: HTTP::request : \[HTTP::request\]"}
+
+	# First check to see what method we're handling through the proxy.
+	# We need to process CONNECT a little differently than other HTTP proxy
+	# methods, and we need to discard requests that come through with
+	# unsupported methods.
+	# Coming out of this section will be:
+	#  - \$host : hostname or bare IP address requested
+	#  - \$port : port of the connection requested
+	#  - \$new_path : normalized URI with the proxy format stripped
+	switch -- \[HTTP::method\] {
+		"CONNECT" {
+			set is_http 0
+			set is_https 0
+			set request_log_line ""
+			set original_request \[HTTP::uri\]
+			set host \[string tolower \[getfield \[HTTP::uri\] ":" 1\]\]
+			set port \[getfield \[HTTP::uri\] ":" 2\]
+			if {\$port eq ""}{
+				set port 443
+			}
+			set new_path \[HTTP::uri\]
+			HTTP::header remove "Proxy-Connection"
+			HTTP::cookie remove "MRHSession"
+			if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Connect request from \$host to \$port." }
+			set http_version \[HTTP::version\]
+			set is_connect 1
+			set is_https 1
+		}
+		"GET" -
+		"PUT" -
+		"POST" -
+		"HEAD" -
+		"PROPFIND" -
+		"PROPPATCH" -
+		"MKCOL" -
+		"DELETE" -
+		"COPY" -
+		"MOVE" -
+		"LOCK" -
+		"UNLOCK" {
+			set is_http 0
+			set is_https 0
+			set request_log_line ""
+			set original_request \[HTTP::uri\]
+			set scheme \[string tolower \[getfield \$original_request ":" 1\]\]
+			set host \[string tolower \[getfield \[findstr \$original_request "//" 2 "/"\] ":" 1\]\]
+			if { \$host contains "@" } {
+				set host_username ""
+				set host_username \[getfield \$host "@" 1\]
+				set host \[getfield \$host "@" 2\]
+				if { \$host_username contains ":" } {
+					set host_password \[getfield \$host_username ":" 1\]
+					set host_username \[getfield \$host_username ":" 2\]
+				}
+			}
+			#FIX
+			set port \[getfield \[findstr \$original_request "//" 2 "/"\] ":" 2\]
+			if { \$port eq "" } {
+				if { \[info exists host_username\] } {
+				    set prefix "\$\{scheme\}://\$\{host_username\}@\$\{host\}"
+				} else {
+					set prefix "\$\{scheme\}://\$\{host\}"
+				}
+			} else {
+				if { \[info exists host_username\] } {
+				    set prefix "\$\{scheme\}://\$\{host_username\}@\$\{host\}:\$\{port\}"
+				} else {
+					set prefix "\$\{scheme\}://\$\{host\}:\$\{port\}"
+				}
+			}
+			set new_path \[findstr \$original_request \$prefix \[string length \$prefix\] \]
+			if {\$port eq ""}{
+				set port 80
+			}
+	        HTTP::uri \$new_path
+			HTTP::header remove "Proxy-Connection"
+			HTTP::cookie remove "MRHSession"
+			if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Get request from \$host to \$port. Altering from \$prefix to \$new_path" }
+			set http_version \[HTTP::version\]
+			set is_http 1
+		}
+		default {
+			set requested_method \[HTTP::method\]
+			set error_occurred 1
+			HTTP::respond 405 content \[subst \$static::unrecognized_method_error_${tmsh::app_name}\] Mime-Type "text/html" 
+			return
+		}
+	}
+
+	# Check to see if the host provided by the browser client is an
+	# IP address or a hostname. If it's an IP address, we're going to
+	# forgo any DNS lookups.
+	if { ! \[catch {IP::addr \$host mask 255.255.255.255}\] } {
+        set _ipaddress \$host
+		set is_ipaddress 1
+    } else {
+        set _ipaddress \[table lookup \$host\]
+		switch -exact -- \$_ipaddress {
+			"" -
+			"NO_IP" {
+				set is_ipaddress 0
+			}
+			default {
+				set is_ipaddress 1
+			}
+		}
+        set is_ipaddress \[expr { (\$_ipaddress ne "") || (\$_ipaddress equals "NO_IP") }\]
+    }
+
+	# We don't want to arbitrarily allow any port through the proxy. If a request comes
+	# through that isn't on a list we expect to see for each mode (CONNECT vs. Normal),
+	# then abort and inform the user what they did.
+    if { (\$is_connect) } {
+		if { (\$is_https) && ( \[lsearch -exact \$static::allow_https_to_ports_${tmsh::app_name} \$port \] < 0 ) } {
+			set error_occurred 1
+			if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Port request for \$host:\$port disallowed by ACL for HTTPS mode. Sending HTTP response error" }
+			if { \$static::enable_logging_${tmsh::app_name} } {
+				HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}> \[IP::client_addr\] -> \$host:\$port \\\"CONNECT \$new_path HTTP/\$http_version\\\" 403 -"
+			}
+			catch {TCP::respond "HTTP/1.1 403 Not Allowed\r\nMime-Type: text/html\\r\\nCache-Control: no-cache,no-store\\r\\nConnection: close\\r\\nContent-Length: \[string length \[subst \$static::port_disallowed_error_${tmsh::app_name}\]\]\\r\\n\\r\\n\[subst \$static::port_disallowed_error_${tmsh::app_name}\]\\r\\n\\r\\n"}
+			return
+		}
+	} else {
+		if { (\$is_http) && ( \[lsearch -exact \$static::allow_http_to_ports_${tmsh::app_name} \$port \] < 0 ) } {
+			set error_occurred 1
+			if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Port request for \$host:\$port disallowed by ACL for HTTP mode. Sending HTTP response error" }
+			if { \$static::enable_logging_${tmsh::app_name} } {
+				HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}> \[IP::client_addr\] -> \$host:\$port \\\"\[HTTP::method\] \$new_path HTTP/\[HTTP::version\]\\\" 403 -"
+			}
+			HTTP::respond 403 content \[subst \$\{static::port_disallowed_error_${tmsh::app_name}\} \] Mime-Type text/html Cache-Control "no-cache,no-store"
+			return
+		}	
+	}
+
+	# If we're handling a CONNECT request, we've got to pretend like the
+	# the connection is moving so the browser doesn't time out. This is less
+	# than ideal, but works even with poorly written clients.
+	#
+	# We zero out any TCP payload and disable HTTP processing because from this
+	# point forward we're basically letting the connection talk directly to
+	# the remote server. This response will only fire when the server connects.
+	if { \$is_connect } {
+        TCP::payload replace 0 \[TCP::payload length\] ""
+        TCP::collect
+        HTTP::disable discard
+		if { \$is_ipaddress } {
+			if { (\$static::check_access_blocking_${tmsh::app_name}) } {
+				if { not \[class match \[IP::client_addr\] equals \$static::block_access_datagroup_${tmsh::app_name}]\ } {
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "ACL failed:  \$host. Sending HTTP response error" }
+					catch {TCP::respond "HTTP/1.1 403 Not Allowed\r\nMime-Type: text/html\\r\\nCache-Control: no-cache,no-store\\r\\nConnection: close\\r\\nContent-Length: \[string length \[subst \$static::host_disallowed_error_${tmsh::app_name}\]\]\\r\\n\\r\\n\[subst \$static::host_disallowed_error_${tmsh::app_name}\]\\r\\n\\r\\n"}
+					return 
+				} else {
+					node \$_ipaddress \$port
+				}
+			} else {
+				node \$_ipaddress \$port
+			}
+        } else {
+			if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Got hostname: \$host, calling resolver..." }
+			set ips \[RESOLV::lookup @\$static::resolver_ip_${tmsh::app_name} -a \$host\]
+            if { \$static::proxy_debug_${tmsh::app_name} } {log local0.info "\$host NAME::response: \$ips"}
+			set _ipaddress \[lindex \$ips 0\]
+            if { (\$_ipaddress equals "") || (\$_ipaddress equals "NO_IP") } {
+				if { \$_ipaddress equals "" } {
+					set error_occurred 1
+					table add \$host "NO_IP" \$static::resolver_cache_lifetime_${tmsh::app_name}
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "DNS resolution failed for hostname:  \$host. Sending HTTPS response error" }
+					if { \$static::enable_logging_${tmsh::app_name} } {
+						HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}> \[IP::client_addr\] -> \$host:\$port \\\"CONNECT \$new_path HTTP/\$http_version\\\" 504 -"
+					}
+					catch {TCP::respond "HTTP/1.1 504 Not Allowed\\r\\nMime-Type: text/html\\r\\nCache-Control: no-cache,no-store\\r\\nConnection: close\\r\\nContent-Length: \[string length \[subst \$static::host_not_found_error_${tmsh::app_name}\]\]\\r\\n\\r\\n\[subst \$static::host_not_found_error_${tmsh::app_name}\]\\r\\n\\r\\n"}
+					return 
+				} else {
+					set error_occurred 1
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "DNS resolution failed for hostname (from cache):  \$host. Sending HTTPS response error" }
+					if { \$static::enable_logging_${tmsh::app_name} } {
+						HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}> \[IP::client_addr\] -> \$host:\$port \\\"CONNECT \$new_path HTTP/\$http_version\\\" 504 -"
+					}
+					catch {TCP::respond "HTTP/1.1 504 Not Allowed\\r\\nMime-Type: text/html\\r\\nCache-Control: no-cache,no-store\\r\\nConnection: close\\r\\nContent-Length: \[string length \[subst \$static::host_not_found_error_${tmsh::app_name}\]\]\\r\\n\\r\\n\[subst \$static::host_not_found_error_${tmsh::app_name}\]\\r\\n\\r\\n"}
+					return 
+				}
+			} else {
+				table add \$host \$_ipaddress \$static::resolver_cache_lifetime_${tmsh::app_name}
+				if { (\$static::check_access_blocking_${tmsh::app_name}) } {
+					if { not \[class match \[IP::client_addr\] equals \$static::block_access_datagroup_${tmsh::app_name}\] } {
+						if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "ACL failed:  \$host. Sending HTTP response error" }
+						catch {TCP::respond "HTTP/1.1 403 Not Allowed\\r\\nMime-Type: text/html\\r\\nCache-Control: no-cache,no-store\\r\\nConnection: close\\r\\nContent-Length: \[string length \[subst \$static::host_disallowed_error_${tmsh::app_name}\]\]\\r\\n\\r\\n\[subst \$static::host_disallowed_error_${tmsh::app_name}\]\\r\\n\\r\\n"}
+						if { \$static::enable_logging_${tmsh::app_name} } {
+							HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}> \[IP::client_addr\] -> \$host:\$port \\\"CONNECT \$new_path HTTP/\$http_version\\\" 403 -"
+						}
+						return  
+					} else {
+						set original_request "https://\[getfield \$\{original_request\} ":" 1\]"
+						if { \$static::support_websense_${tmsh::app_name} } {
+							if { not \$disable_websense_lookups } {
+								foreach {a b c d} \[split \$_ipaddress .\] break
+								set wsp_dst_ip \[expr {(wide(\$a)<<24)+(\$b<<16)+(\$c<<8)+\$d}\]
+								set wsp_url_length \[string length \$original_request\]
+								binary scan \[string range \[ md5 \[ expr { \[info cmdcount\] * rand() } \] \] 0 3 \] H8 wsp_message_id
+								set wsp_message_request_header "\[binary format SSSH8 \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id\]"
+								set wsp_message_length \[expr { \[string length \$wsp_message_request_header\] + \[string length \$wsp_message_body\] + 2 } \]
+								set wsp_message_body "\[binary format SSIISa\$\{wsp_url_length\}Sa\$\{wsp_username_length\} 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]"
+								send -timeout 1000 -status wsp_send_status \$wsp_conn \[binary format SSSSH8SSIISa\$\{wsp_url_length\}Sa\$\{wsp_username_length\} \$wsp_message_length \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]
+								set wsp_recv_data \[recv -status wsp_recv_status -timeout 50 \$wsp_conn \]
+								binary scan \$wsp_recv_data SSSSH8SSSSa* wsp_recv_length wsp_recv_version wsp_recv_type wsp_recv_flags wsp_recv_message_id wsp_recv_lookup_code wsp_recv_lookup_desc wsp_recv_category wsp_recv_message_length wsp_recv_message
+								if {\$wsp_recv_message_length > 0 } { binary scan \$wsp_recv_message a\$\{wsp_recv_message_length\}S wsp_recv_message_out wsp_recv_null }
+									if { \[info exists wsp_recv_message_id\] } {
+										if { (\$wsp_message_id == \$wsp_recv_message_id) } {
+											if { \$wsp_recv_lookup_code > 0 } {
+												if { \[info exists wsp_recv_message_out\] } {
+													clientside {
+														catch {TCP::respond "HTTP/1.1 403 Not Allowed\\r\\nMime-Type: text/html\\r\\nCache-Control: no-cache,no-store\\r\\nConnection: close\\r\\nContent-Length: \[string length \[subst \$static::host_disallowed_error_${tmsh::app_name}\]\]\\r\\n\\r\\n\[subst \$static::host_disallowed_error_${tmsh::app_name}\]\\r\\n\\r\\n"}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						node \$_ipaddress \$port
+					}
+				} else {
+					set original_request "https://\[getfield \$\{original_request\} ":" 1\]"
+					if { \$static::support_websense_${tmsh::app_name} } {
+						if { not \$disable_websense_lookups } {
+							foreach {a b c d} \[split \$_ipaddress .\] break
+							set wsp_dst_ip \[expr {(wide(\$a)<<24)+(\$b<<16)+(\$c<<8)+\$d}\]
+							set wsp_url_length \[string length \$original_request\]
+							binary scan \[string range \[ md5 \[ expr { \[info cmdcount\] * rand() } \] \] 0 3 \] H8 wsp_message_id
+							set wsp_message_request_header "\[binary format SSSH8 \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id\]"
+							set wsp_message_length \[expr { \[string length \$wsp_message_request_header\] + \[string length \$wsp_message_body\] + 2 } \]
+							set wsp_message_body "\[binary format SSIISa\$\{wsp_url_length\}Sa\$\{wsp_username_length\} 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]"
+							send -timeout 1000 -status wsp_send_status \$wsp_conn \[binary format SSSSH8SSIISa\$\{wsp_url_length\}Sa\$\{wsp_username_length\} \$wsp_message_length \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]
+							set wsp_recv_data \[recv -status wsp_recv_status -timeout 50 \$wsp_conn \]
+							binary scan \$wsp_recv_data SSSSH8SSSSa* wsp_recv_length wsp_recv_version wsp_recv_type wsp_recv_flags wsp_recv_message_id wsp_recv_lookup_code wsp_recv_lookup_desc wsp_recv_category wsp_recv_message_length wsp_recv_message
+							if {\$wsp_recv_message_length > 0 } { binary scan \$wsp_recv_message a\$\{wsp_recv_message_length\}S wsp_recv_message_out wsp_recv_null }
+								if { \[info exists wsp_recv_message_id\] } {
+									if { (\$wsp_message_id == \$wsp_recv_message_id) } {
+										if { \$wsp_recv_lookup_code > 0 } {
+											if { \[info exists wsp_recv_message_out\] } {
+												clientside {
+													catch {TCP::respond "HTTP/1.1 403 Not Allowed\\r\\nMime-Type: text/html\\r\\nCache-Control: no-cache,no-store\\r\\nConnection: close\\r\\nContent-Length: \[string length \[subst \$static::host_disallowed_error_${tmsh::app_name}\]\]\\r\\n\\r\\n\[subst \$static::host_disallowed_error_${tmsh::app_name}\]\\r\\n\\r\\n"}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					node \$_ipaddress \$port
+				}   
+            }
+        }
+    } else {
+
+	# If we're not handling a CONNECT request, then we're going to strip out the
+	# FQDN and protocol from the fully-formed URI we just got.
+	# 
+	# Along the way, we need to handle failures to resolve DNS, caching of DNS returns
+	# in a table for better performance, checking to see whether the browser client
+	# is restricted from proxy use, and logging error conditions. Only then do we set the
+	# node and port to the remote host system.
+	    if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Got hostname: \$host, calling resolver..." }
+	    set ips \[RESOLV::lookup @\$static::resolver_ip_${tmsh::app_name} -a \$host\]
+        if { \$static::proxy_debug_${tmsh::app_name} } {log local0.info "\$host NAME::response: \$ips"}
+		set _ipaddress \[lindex \$ips 0\]
+        if { (\$_ipaddress equals "") || (\$_ipaddress equals "NO_IP") } {
+			if { \$_ipaddress equals "" } {
+				set error_occurred 1
+				table add \$host "NO_IP" \$static::resolver_cache_lifetime_${tmsh::app_name}
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "DNS resolution failed for hostname:  \$host. Sending HTTP response error" }
+				if { \$static::enable_logging_${tmsh::app_name} } {
+					HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}> \[IP::client_addr\] -> \$host:\$port \\\"\[HTTP::method\] \$new_path HTTP/\[HTTP::version\]\\\" 504 -"
+				}
+				HTTP::respond 504 content \[subst \$\{static::host_not_found_error_${tmsh::app_name}\} \] Mime-Type text/html Cache-Control "no-cache,no-store"
+				return 
+			} else {
+				set error_occurred 1
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "DNS resolution failed for hostname (from cache):  \$host. Sending HTTP response error" }
+				if { \$static::enable_logging_${tmsh::app_name} } {
+					HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}> \[IP::client_addr\] -> \$host:\$port \\\"\[HTTP::method\] \$new_path HTTP/\[HTTP::version\]\\\" 504 -"
+				}
+				HTTP::respond 504 content \[subst \$\{static::host_not_found_error_${tmsh::app_name}\} \] Mime-Type text/html Cache-Control "no-cache,no-store"
+				return  
+			}
+		} else {
+			table add \$host \$_ipaddress \$static::resolver_cache_lifetime_${tmsh::app_name}
+			if { (\$static::check_access_blocking_${tmsh::app_name}) } {
+				if { not \[class match \[IP::client_addr\] equals \$static::block_access_datagroup_${tmsh::app_name}\] } {
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "ACL failed:  \$host. Sending HTTP response error" }
+					HTTP::respond 403 content \[subst \$\{static::host_disallowed_error_${tmsh::app_name}\} \] Mime-Type text/html Cache-Control "no-cache,no-store"
+					if { \$static::enable_logging_${tmsh::app_name} } {
+						HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}> \[IP::client_addr\] -> \$host:\$port \\\"\[HTTP::method\] \$new_path HTTP/\[HTTP::version\]\\\" 403 -"
+					}
+					return  
+				} else {
+					if { \$static::support_websense_${tmsh::app_name} } {
+						if { not \$disable_websense_lookups } {
+							foreach {a b c d} \[split \$_ipaddress .\] break
+							set wsp_dst_ip \[expr {(wide(\$a)<<24)+(\$b<<16)+(\$c<<8)+\$d}\]
+							set wsp_url_length \[string length \$original_request\]
+							binary scan \[string range \[ md5 \[ expr { \[info cmdcount\] * rand() } \] \] 0 3 \] H8 wsp_message_id
+							set wsp_message_request_header "\[binary format SSSH8 \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id\]"
+							set wsp_message_length \[expr { \[string length \$wsp_message_request_header\] + \[string length \$wsp_message_body\] + 2 } \]
+							set wsp_message_body "\[binary format SSIISa\$\{wsp_url_length\}Sa\$\{wsp_username_length\} 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]"
+							send -timeout 1000 -status wsp_send_status \$wsp_conn \[binary format SSSSH8SSIISa\$\{wsp_url_length\}Sa\$\{wsp_username_length\} \$wsp_message_length \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]
+							set wsp_recv_data \[recv -status wsp_recv_status -timeout 50 \$wsp_conn \]
+							binary scan \$wsp_recv_data SSSSH8SSSSa* wsp_recv_length wsp_recv_version wsp_recv_type wsp_recv_flags wsp_recv_message_id wsp_recv_lookup_code wsp_recv_lookup_desc wsp_recv_category wsp_recv_message_length wsp_recv_message
+							if {\$wsp_recv_message_length > 0 } { binary scan \$wsp_recv_message a\$\{wsp_recv_message_length\}S wsp_recv_message_out wsp_recv_null }
+								if { \[info exists wsp_recv_message_id\] } {
+									if { (\$wsp_message_id == \$wsp_recv_message_id) } {
+										if { \$wsp_recv_lookup_code > 0 } {
+											if { \[info exists wsp_recv_message_out\] } {
+												clientside {
+													TCP::payload replace 0 0 ""
+													TCP::respond \$wsp_recv_message_out
+													TCP::close
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					node \$_ipaddress \$port
+				}
+			} else {
+				if { \$static::support_websense_${tmsh::app_name} } {
+					if { not \$disable_websense_lookups } {
+						foreach {a b c d} \[split \$_ipaddress .\] break
+						set wsp_dst_ip \[expr {(wide(\$a)<<24)+(\$b<<16)+(\$c<<8)+\$d}\]
+						binary scan \[string range \[ md5 \[ expr { \[info cmdcount\] * rand() } \] \] 0 3 \] H8 wsp_message_id
+						set wsp_message_request_header "\[binary format SSSH8 \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id\]"
+						set wsp_url_length \[string length \$original_request\]
+						set wsp_message_length \[expr { \[string length \$wsp_message_request_header\] + \[string length \$wsp_message_body\] + 2 } \]
+						set wsp_message_body "\[binary format SSIISa\$\{wsp_url_length\}Sa\$\{wsp_username_length\} 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]"
+						send -timeout 1000 -status wsp_send_status \$wsp_conn \[binary format SSSSH8SSIISa\$\{wsp_url_length\}Sa\$\{wsp_username_length\} \$wsp_message_length \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]
+						set wsp_recv_data \[recv -status wsp_recv_status -timeout 50 \$wsp_conn \]
+						binary scan \$wsp_recv_data SSSSH8SSSSa* wsp_recv_length wsp_recv_version wsp_recv_type wsp_recv_flags wsp_recv_message_id wsp_recv_lookup_code wsp_recv_lookup_desc wsp_recv_category wsp_recv_message_length wsp_recv_message
+						if {\$wsp_recv_message_length > 0 } { binary scan \$wsp_recv_message a\$\{wsp_recv_message_length\}S wsp_recv_message_out wsp_recv_null }
+							if { \[info exists wsp_recv_message_id\] } {
+								if { (\$wsp_message_id == \$wsp_recv_message_id) } {
+									if { \$wsp_recv_lookup_code > 0 } {
+										if { \[info exists wsp_recv_message_out\] } {
+											clientside {
+												TCP::payload replace 0 0 ""
+												TCP::respond \$wsp_recv_message_out
+												TCP::close
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				node \$_ipaddress \$port
+			}
+		}
+    }
+
+	# Collect the info we need to build the HSL log entry.
+	#
+	# The logs collected here will differ depending on whether the user
+	# is using CONNECT or proxy-style connectivity.
+	#
+	# For example:
+	#           Date            Source    Client-IP      Dest-HostPort   Request                            Status Length
+	# HTTP   : "May 15 20:03:54 ltm-proxy <client_ip> -> www.aa.com:80   "GET /sample/page.html HTTP/1.1"   200    43514
+	# CONNECT: "May 15 20:03:54 ltm-proxy <client_ip> -> www.aa.com:443  "CONNECT www.aa.com:443 HTTP/1.0"  200    -
+	if { \$static::enable_logging_${tmsh::app_name} && \$is_https} {
+		set request_log_line "\[IP::client_addr\] -> \$host:\$port \\\"CONNECT \$host:\$port HTTP/\$http_version\\\""
+	} elseif { \$static::enable_logging_${tmsh::app_name} && \$is_http } {
+		set request_log_line "\[IP::client_addr] -> \[HTTP::host\]:\$port \\\"\[HTTP::method\] \$new_path HTTP/\[HTTP::version\]\\\""
+	}
+}
+
+when HTTP_RESPONSE {
+	# In HTTP mode, complete a log entry for each response returned.
+	# Add a header to let the browser clients know they had their connections
+	# processed by our proxy.
+	if { \$is_http && \$static::enable_logging_${tmsh::app_name} } {
+		append request_log_line " \[HTTP::status\] \[HTTP::payload length\]"
+		HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line\n"
+	}
+    HTTP::header insert "Via" "F5ProxyiRule"
+	if { \$static::support_apm_${tmsh::app_name} && not \$static::apm_transparent_${tmsh::app_name} } {
+		HTTP::header insert "Set-Cookie" "MRHSession=\$current_sid; path=/; domain=.\$host"
+	}
+}
+
+when SERVER_CONNECTED {
+	# Handle CONNECT mode by faking a response to the connection once we have
+	# a server connection. Disable HTTP processing for this request and zero out
+	# anything the client may have sent; at this point, the browser client is
+	# now talking TCP to the remote system after we've satisfied their browser
+	# that we are connected successfully.
+    if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Server connected." }
+    if { \$is_connect  } {
+		clientside { TCP::respond "HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n\r\n" }
+		TCP::payload replace 0 \[TCP::payload length\] ""
+        if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Sending client data: \[b64encode \[clientside { TCP::payload }\] \]" }
+        clientside { HTTP::disable discard }
+        TCP::respond \[clientside { TCP::payload }\]
+        clientside {
+            TCP::payload replace 0 \[string length \[TCP::payload\]\] ""
+            TCP::release
+        }
+		if { \$is_https && \$static::enable_logging_${tmsh::app_name} } {
+			HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 200 -\n"
+		}
+    }
+}
+
+when SERVER_CLOSED {
+    if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Server closed." }
+}
+
+when LB_FAILED {
+	# Handle situations where the remote system fails to respond (mainly affected by
+	# the TCP timeout setting). Our action is to try to inform the user.
+    if { (\$is_connect) } {
+        if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Server connection failed. Closing client connection."}
+			if { \$is_https && \$static::enable_logging_${tmsh::app_name} } {
+				HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 504 -\n"
+			}
+            clientside {TCP::close}
+    } else {
+        if { (\$static::proxy_debug_${tmsh::app_name}) && (\$error_occurred) } {
+            if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Server connection failed, DNS error."}
+			clientside {
+                HTTP::release
+				return
+            }
+        } else {
+            if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "Server connection failed. Sending HTTP response error"}
+            clientside {
+                HTTP::release
+				if { \$is_http && \$static::enable_logging_${tmsh::app_name} } {
+					HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 504 -\n"
+				}
+				HTTP::respond 504 content \[subst \$\{static::host_not_responding_error_${tmsh::app_name}\}\] Mime-Type text/html Cache-Control "no-cache,no-store"
+				set error_occurred 1
+				return
+            }
+	    }
+    }
+}
+
+when CLIENT_CLOSED {
+    if { \$static::proxy_debug_${tmsh::app_name} } { log local0.info "client closed." }
+	if { \$static::support_websense_${tmsh::app_name} && not \$disable_websense_lookups } {
+		close \$wsp_conn
+	}
+}
+
+
+}
+
+###
+###  END OF EXPLICIT PROXY SUPPORT IRULE
+###
+####################################################################################################################
+
+
+####################################################################################################################
+###
+###  START OF SOCKS PROXY SUPPORT IRULE
+###
+
+set socks_proxy_code {
+
+when CLIENT_ACCEPTED {
+
+	############################################################
+	## SOCKS 4/4a/5 Proxy iRule
+	## Author: Joel Moses <j.moses@f5.com>
+	## Version: 1.1
+	## Description: Enables use of a standard VS as a SOCKS
+	##                      forward proxy.
+	##
+	## Notes:
+	##  - Does not support SOCKS5 UDP ASSOCIATE mode.
+	##  - Does not support IPv6 at this time. SOCKS5 includes
+	##    IPv6 support in the protocol, but this is not
+	##    yet implemented in this rule.
+	##
+	## History:
+	## - 1.0 Initial Release
+	## - 1.1 Support for Websense (HTTP/HTTPS)
+	##       Support for port control
+	##               Support for PASV FTP mode
+	##       Support for external logging (in progress)
+
+
+	# Set/Initialize everything.
+
+	set _port ""
+	set _ipaddress ""
+	set handle_https 0
+	set is_http 0
+	set is_https 0
+	set is_ftp 0
+	set socksremotehost ""
+	set socksremoteport ""
+	set socksver ""
+	set socksremoteaddr ""
+	set ips ""
+	set server_release 0
+	set port_match_http 0
+	set port_match_https 0
+	set port_match_ftp 0
+	set port_match_ftp_pasv 0
+
+	# If we're configured to support Websense, make a decision as
+	# to which Websense filter host to which we're going to send our
+	# filter requests in the context of this connection. This will
+	# select the same filter host per incoming client IP address, and
+	# will only select those hosts marked as active by the pool's
+	# health monitor.
+
+	if { \$static::support_websense_${tmsh::app_name} } {
+		set disable_websense_lookups 0
+		foreach {a b c d} \[split \[IP::client_addr\] .\] break
+		set wsp_src_ip \[expr {(wide(\$a)<<24)+(\$b<<16)+(\$c<<8)+\$d}\]
+		if { \[active_members \$\{static::wsp_wisp_pool_${tmsh::app_name}\} \] > 0 } {
+			set wsp_list_cmd { set wsp_active_server_list \[active_members -list \$\{static::wsp_wisp_pool_${tmsh::app_name}\} \] }
+			eval \$wsp_list_cmd
+			set wsp_member_selection \[lindex \[lindex \$wsp_active_server_list \[expr { \[crc32 \[IP::client_addr\] \] % \[llength \$wsp_active_server_list\] } \] \] 0 \]
+			if { not \[catch {connect -timeout 100 -idle 30 -status wsp_conn_status \${wsp_member_selection}:\$\{static::wsp_wisp_port_${tmsh::app_name}\}} wsp_conn\] == 0 && \$wsp_conn ne "" } {
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Websense server not connecting." }
+				set disable_websense_lookups 1
+			}
+		} else {
+			set disable_websense_lookups 1
+		}
+	}
+
+	# Set up a logging handle for the context of this stream.
+
+	if { \$static::enable_logging_${tmsh::app_name} } {
+		set logging_handle \[HSL::open -proto UDP -pool \$\{static::log_destination_${tmsh::app_name}\} \]
+	}
+
+	# On first connection, disable HTTP and get the packets we
+	# expect to contain SOCKS4/5 traffic. If there's already a
+	# serverside connection built, we're going to bypass.
+
+	if { not \[info exists socks_connect_serverside\] } {
+		HTTP::disable
+		TCP::collect
+	}
+}
+
+when CLIENT_DATA {
+
+	# If we've collected what we believe to be an SSL handshake and
+	# we're configured for Websense, construct and pass the URL
+	# filtering request. Otherwise don't process it.
+	#
+	# First, determine if we're in an SSL handshake.
+
+	if { (\[info exists collected_ssl\]) && (\[info exists handle_https\]) } {
+		set wsp_message_body ""
+		set wsp_message_out ""
+		set wsp_username ""
+		set wsp_username_length 0
+		set wsp_recv_message_length 0
+		set wsp_message_length 0
+		set wsp_uri_length 0
+		set detect_handshake 1
+		set determined_host \[IP::local_addr\]
+		binary scan \[TCP::payload\] cSS tls_xacttype tls_version tls_recordlen
+		switch -- "\$tls_version" {
+			"769" -
+			"770" -
+			"771" {
+				if { (\$tls_xacttype == 22) } {
+					binary scan \[TCP::payload\] @5c tls_action
+					if { not ((\$tls_action == 1) && (\[TCP::payload length\] > \$tls_recordlen)) } {
+						set detect_handshake 0
+					}
+				}
+			}
+			default {
+				set detect_handshake 0
+			}
+		}
+
+	# Next, read the SSL handshake to see if it has an SNI field.
+	# If we can't find one, construct a URL to send to Websense
+	# that consists of the Client IP, otherwise, use the hostname
+	# we found in the packet.
+
+		if { \$detect_handshake } {
+			set record_offset 43
+			binary scan \[TCP::payload\] @\${record_offset}c tls_sessidlen
+			set record_offset \[expr {\$record_offset + 1 + \$tls_sessidlen}\]
+			binary scan \[TCP::payload\] @\${record_offset}S tls_ciphlen
+			set record_offset \[expr {\$record_offset + 2 + \$tls_ciphlen}\]
+			binary scan \[TCP::payload\] @\${record_offset}c tls_complen
+			set record_offset \[expr {\$record_offset + 1 + \$tls_complen}\]
+			if { (\[TCP::payload length\] > \$record_offset) } {
+				binary scan \[TCP::payload\] @\${record_offset}S tls_extenlen
+				set record_offset \[expr {\$record_offset + 2}\]
+				binary scan \[TCP::payload\] @\${record_offset}a* tls_extensions
+				for { set x 0 } { \$x < \$tls_extenlen } { incr x 4 } {
+					set start \[expr {\$x}\]
+					binary scan \$tls_extensions @\${start}SS etype elen
+					if { (\$etype == "00") } {
+						set grabstart \[expr {\$start + 9}\]
+						set grabend \[expr {\$elen - 5}\]
+						binary scan \$tls_extensions @\${grabstart}A\${grabend} tls_servername
+						set start \[expr {\$start + \$elen}\]
+					} else {
+						set start \[expr {\$start + \$elen}\]
+					}
+					set x \$start
+				}
+			}
+			if { \[info exists tls_servername\] } {
+				set determined_host \$tls_servername
+			} else {
+				set determined_host \$_ipaddress
+			}
+			if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS (SSL): Hostname is probably best seen as \$determined_host." }
+		}
+
+	# Then we construct and pass the URL filtering request using the best
+	# host determination we can make. If a block message is collected from
+	# Websense, we'll ignore the payload and just reject the connection.
+
+		if { (\$static::support_websense_${tmsh::app_name}) && (not \$disable_websense_lookups) } {
+			foreach {a b c d} \[split \[IP::local_addr\] .\] break
+			set wsp_dst_ip \[expr {(wide(\$a)<<24)+(\$b<<16)+(\$c<<8)+\$d}\]
+			set original_request "https://\${determined_host}"
+			set wsp_url_length \[string length \$original_request\]
+			binary scan \[string range \[ md5 \[ expr { \[info cmdcount\] * rand() } \] \] 0 3 \] H8 wsp_message_id
+			set wsp_message_request_header "\[binary format SSSH8 \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id\]"
+			set wsp_message_length \[expr { \[string length \$wsp_message_request_header\] + \[string length \$wsp_message_body\] + 2 } \]
+			set wsp_message_body "\[binary format SSIISa\${wsp_url_length}Sa\${wsp_username_length} 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]"
+			send -timeout 1000 -status wsp_send_status \$wsp_conn \[binary format SSSSH8SSIISa\${wsp_url_length}Sa\${wsp_username_length} \$wsp_message_length \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]
+			set wsp_recv_data \[recv -status wsp_recv_status -timeout 50 \$wsp_conn \]
+			binary scan \$wsp_recv_data SSSSH8SSSSa* wsp_recv_length wsp_recv_version wsp_recv_type wsp_recv_flags wsp_recv_message_id wsp_recv_lookup_code wsp_recv_lookup_desc wsp_recv_category wsp_recv_message_length wsp_recv_message
+			if {\$wsp_recv_message_length > 0 } { binary scan \$wsp_recv_message a\${wsp_recv_message_length}S wsp_recv_message_out wsp_recv_null }
+			if { \[info exists wsp_recv_message_id\] } {
+				if { (\$wsp_message_id == \$wsp_recv_message_id) } {
+					if { \$wsp_recv_lookup_code > 0 } {
+						if { \[info exists wsp_recv_message_out\] } {
+							if { \$static::proxy_debug } { log local0. "SOCKS (Blocked): Client \[IP::client_addr\] got blocked - \$original_request" }
+							clientside {
+								reject
+								return
+							}
+						}
+					}
+				}
+			}
+		}
+
+	# Finally, if we made it this far, then we're not blocking this
+	# SSL transaction and can ignore everything else sent to us on this
+	# particular socket. We'll disable event processing -- just like in
+	# a CONNECT-style explicit proxy -- and release the connection.
+
+		TCP::release
+		event disable
+	}
+
+	# If there's no SOCKS5 connection attempt currently in
+	# progress, we need to find out what version we're talking to,
+	# otherwise, if there is a connnection in progress but no
+	# serverside connection built, we have to find out where the
+	# client wants to go.
+	# This section of the code only really fires when we're
+	# in SOCKS5 mode. SOCKS4 is a simple in/out protocol and does
+	# not require acknoledgement.
+	# Note that we only support IPv4 addresses here. There are
+	# other SOCKS5 lookup types but we've not implemented that yet.
+
+	if {not \[info exists socks_connect\] && not \[info exists socks_connect_serverside\] } {
+		binary scan \[TCP::payload\] cc socksver socksauthlen
+		binary scan \[TCP::payload\] @2c\${socksauthlen} socksauth
+	} elseif {not \[info exists socks_connect_serverside\] } {
+		binary scan \[TCP::payload\] @3c1 socksaddrtype
+		switch -- \$socksaddrtype {
+			"1" {
+				binary scan \[TCP::payload\] @4iS socksremoteaddr socksremoteport
+				set _ipaddress \[IP::addr parse -ipv4 -swap \[binary format I \$socksremoteaddr\] \]
+				set _port \[expr {\$socksremoteport & 0xFFFF}\]
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS5: Request for IPv4 address (\$_ipaddress:\$_port)." }
+			}
+			"3" {
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS5: Request for hostname." }
+				binary scan \[TCP::payload\] @4c socksremotehostlen
+				binary scan \[TCP::payload\] @5a\${socksremotehostlen}S socksremotehost socksremoteport
+				if { \[ catch { \[IP::addr \$socksremotehost mask 255.255.255.255\] ne "" } \] } {
+					set ips \[RESOLV::lookup @\$\{static::resolver_ip_${tmsh::app_name}\} inet -a \$socksremotehost\]
+				} elseif { \$socksremotehost contains ":" } {
+					set ips \$socksremotehost
+				} else {
+					set ips ""
+				}
+				if { \$ips != "" } {
+					set _ipaddress \[lindex \$ips 0\]
+					set _port \[expr {\$socksremoteport & 0xFFFF}\]
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS5: Hostname \$socksremotehost is at IP address \$_ipaddress:\$_port." }
+				} else {
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS5: Hostname \$socksremotehost is unknown. Sending notice and rejecting." }
+					clientside { TCP::respond \[binary format H2H2H2cca\${socksremotehostlen}S 05 04 00 \$socksaddrtype \$socksremotehostlen \$socksremotehost \$socksremoteport \] }
+					reject
+					return
+				}
+			}
+			default {
+				reject
+				return
+			}
+		}
+
+	# If we've determined what we need to know to pass the connection,
+	# we then need to determine whether the port request should be
+	# allowed by security policy. There is special handling for PASV
+	# FTP requests -- if we've seen the PASV port request from a
+	# particular client IP address, we can locate it in a table and
+	# allow just that request on a high TCP port.
+
+	set port_match_http \[expr { \[lsearch -exact -integer \$static::allow_http_to_ports_${tmsh::app_name} \$_port\] >= 0 }\]
+	set port_match_https \[expr { \[lsearch -exact -integer \$static::allow_https_to_ports_${tmsh::app_name} \$_port\] >= 0 }\]
+	set port_match_ftp \[expr { \[lsearch -exact -integer \$static::allow_ftp_to_ports_${tmsh::app_name} \$_port\] >= 0 }\]
+	if { \[IP::client_addr\] equals \[table lookup -subtable pasv_ftp_connections_${tmsh::app_name} \$_ipaddress:\$_port\] } {
+		set port_match_ftp_pasv 1
+	} else {
+		set port_match_ftp_pasv 0
+	}
+	set port_match \[expr { \$port_match_http + \$port_match_https + \$port_match_ftp + \$port_match_ftp_pasv }\]
+	if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Score: HTTP \$port_match_http HTTPS \$port_match_https FTP \$port_match_ftp PASV \$port_match_ftp_pasv TOTAL \$port_match" }
+	if { \$port_match >= 1 } {
+		if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Port match for connection (Allowed): \[IP::client_addr\] to \$_ipaddress:\$_port" }
+	} else {
+		if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Port match for connection (Blocked): \[IP::client_addr\] to \$_ipaddress:\$_port" }
+		if { \[info exists socksremotehostlen\] } {
+			clientside { TCP::respond \[binary format H2H2H2cca\${socksremotehostlen}S 05 04 00 \$socksaddrtype \$socksremotehostlen \$socksremotehost \$socksremoteport \] }
+			reject
+			return
+		} else {
+			clientside { TCP::respond \[binary format H2H2H2ciS 05 04 00 \$socksaddrtype \$socksremoteaddr \$socksremoteport \] }
+			reject
+			return
+			}
+		}
+	}
+
+	# If we've not determined whether we need an ACK to an existing
+	# SOCKS5 request, then it must be a new session that we need to
+	# handle. For SOCKS5, this means we send out an Accept packet.
+	# For SOCKS4, all we need is in the request packet already, so
+	# we're just going to attempt the requested address/port.
+	# We will also attempt to detect and process a SOCKS4A extension
+	# that allows SOCKS4 without using IP addresses (hostnames only).
+	# This extension doesn't exist in all SOCKS4 clients.
+
+	if {not \[info exists socks_outbound\] && not \[info exists socks_connect_serverside\] } {
+		switch -- \$socksver {
+			"5" {
+				set socks_outbound 1
+				set socks_connect 1
+				TCP::payload replace 0 \[TCP::payload length\] {}
+				TCP::respond \[binary format H2H2 05 00\]
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS5: Stage one ACCEPT for type \$socksver." }
+				TCP::collect
+				return
+			}
+			"4" {
+				set socks_outbound 1
+				set socks_connect 1
+				set socks_connect_serverside 1
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS4: Stage one ACCEPT for type \$socksver." }
+				binary scan \[TCP::payload\] ccSia* socksver sockscommand socksremoteport socksremoteaddr socksuser
+				set _ipaddress \[IP::addr parse -ipv4 -swap \[binary format I \$socksremoteaddr\] \]
+				set _port \[expr {\$socksremoteport & 0xFFFF}\]
+				if { \$_ipaddress starts_with "0.0.0." } {
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS 4A extension detected." }
+					set socksuserlist \[split \$socksuser "\\x00"\]
+					set socksremotehost \[lindex \$socksuserlist 1\]
+					if { \[ catch { \[IP::addr \$socksremotehost mask 255.255.255.255\] ne "" } \] } {
+						set ips \[RESOLV::lookup @\$\{static::resolver_ip_${tmsh::app_name}\} inet -a \$socksremotehost\]
+					} elseif { \$socksremotehost contains ":" } {
+						set ips \$socksremotehost
+					} else {
+						set ips ""
+					}
+				if { \$ips != "" } {
+					set _ipaddress \[lindex \$ips 0\]
+					set _port \[expr {\$socksremoteport & 0xFFFF}\]
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS4A: Hostname \$socksremotehost is at IP address \$_ipaddress:\$_port." }
+				} else {
+					clientside { TCP::respond \[binary format H2H2H2H2H2H2H2H2 00 5b 00 00 00 00 00 00\] }
+					reject
+					return
+				}
+			}
+
+        # If we've determined what we need to know to pass the connection,
+        # we then need to determine whether the port request should be
+        # allowed by security policy. There is special handling for PASV
+        # FTP requests -- if we've seen the PASV port request from a
+        # particular client IP address, we can locate it in a table and
+        # allow just that request on a high TCP port.
+
+			set port_match_http \[expr { \[lsearch -exact -integer \$static::allow_http_to_ports_${tmsh::app_name} \$_port\] >= 0 }\]
+			set port_match_https \[expr { \[lsearch -exact -integer \$static::allow_https_to_ports_${tmsh::app_name} \$_port\] >= 0 }\]
+			set port_match_ftp \[expr { \[lsearch -exact -integer \$static::allow_ftp_to_ports_${tmsh::app_name} \$_port\] >= 0 }\]
+			if { \[IP::client_addr\] equals \[table lookup -subtable pasv_ftp_connections_${tmsh::app_name} \$_ipaddress:\$_port\] } {
+				set port_match_ftp_pasv 1
+			} else {
+				set port_match_ftp_pasv 0
+			}
+			set port_match \[expr { \$port_match_http + \$port_match_https + \$port_match_ftp + \$port_match_ftp_pasv }\]
+			if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Score: HTTP \$port_match_http HTTPS \$port_match_https FTP \$port_match_ftp PASV \$port_match_ftp_pasv TOTAL \$port_match" }
+			if { \$port_match >= 1 } {
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Port match for connection (Allowed): \[IP::client_addr\] to \$_ipaddress:\$_port" }
+			} else {
+				if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "Port match for connection (Blocked): \[IP::client_addr\] to \$_ipaddress:\$_port" }
+				clientside { TCP::respond \[binary format H2H2H2H2H2H2H2H2 00 5b 00 00 00 00 00 00\] }
+				reject
+				return
+			}
+
+        # Construct the SOCKS4 response and attempt to classify the
+        # traffic based on port number. We will handle SSL and FTP
+        # sessions in a special way in order to apply security and
+        # URL filtering, if configured.
+
+			TCP::payload replace 0 \[TCP::payload length\] ""
+			if { \$_ipaddress != "" } {
+				node \$_ipaddress \$_port
+			} else {
+				clientside { TCP::respond \[binary format H2H2H2H2H2H2H2H2 00 5b 00 00 00 00 00 00\] }
+				reject
+				return
+			}
+			clientside { TCP::respond \[binary format H2H2Si 00 5a \$socksremoteport \$socksremoteaddr\] }
+			if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS4: Connecting to \$_ipaddress:\$_port." }
+			switch -- \$_port {
+				"80" {
+					set is_http 1
+					HTTP::enable
+					TCP::release
+					return
+				}
+				"443" {
+					set is_https 1
+					set handle_https 1
+					clientside {
+						set collected_ssl 1
+						TCP::collect
+						return
+					}
+				}
+				"21" {
+					set is_ftp 1
+					set handle_ftp 1
+					TCP::release
+					return
+				}
+				default {
+					TCP::release
+					return
+				}
+			}
+		}
+			default {
+				reject
+				return
+			}
+		}
+	}
+
+        # If we made it this far, then we're in SOCKS5 negotiation but have
+        # not completed yet. We're going to respond to requests to with a SOCKS5
+        # header if we determine negotiation is needed.
+        # Otherwise, we're going to fall through. In the process, we will enable
+        # HTTP handling if we are handing a port 80 socket. This would allow for
+        # this rule to do interesting things with HTTP_REQUEST and HTTP_RESPONSE
+        # events post-SOCKS if desired.
+
+	if { \[info exists socks_connect\] && (not \[info exists socks_connect_serverside\]) } {
+		clientside {
+			switch -- \$socksaddrtype {
+				"1" {
+					clientside {
+						TCP::respond \[binary format H2H2H2ciS 05 00 00 \$socksaddrtype \$socksremoteaddr \$_port\]
+					}
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS5: Responding with SUCCESS type \$socksaddrtype." }
+				}
+				"3" {
+					clientside {
+						TCP::respond \[binary format H2H2H2cca\${socksremotehostlen}S 05 00 00 \$socksaddrtype \$socksremotehostlen \$socksremotehost \$socksremoteport\]
+					}
+					if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS5: Responding with SUCCESS type \$socksaddrtype." }
+				}
+			}
+		}
+		TCP::payload replace 0 \[string length \[TCP::payload\]\] ""
+		if { \$_ipaddress != "" } {
+			node \$_ipaddress \$_port
+		} else {
+			reject
+			return
+		}
+
+        # Attempt to classify the traffic based on port number. We
+        # will handle SSL and FTP sessions in a special way in order to
+        # apply security and URL filtering, if configured.
+
+		set socks_connect_serverside 1
+		switch -- \$_port {
+			"80" {
+				set is_http 1
+				HTTP::enable
+				TCP::release
+				return
+			}
+			"443" {
+				set is_https 1
+				set handle_https 1
+				clientside {
+					set collected_ssl 1
+					TCP::collect
+					return
+				}
+			}
+			"21" {
+				set is_ftp 1
+				set handle_ftp 1
+				TCP::release
+				return
+			}
+			default {
+				TCP::release
+				return
+			}
+		}
+    } else {
+		TCP::release
+	}
+}
+
+when HTTP_REQUEST {
+
+	# If we're in a recognized HTTP session and we're configured for Websense,
+	# construct and pass the URL filtering request.If we get a block response
+	# back, copy it out to the client and close.
+
+	if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS (HTTP): Client \[IP::client_addr\] - http://\[HTTP::host\]\[HTTP::uri\]" }
+	if { \$static::support_websense_${tmsh::app_name} } {
+		set wsp_message_body ""
+		set wsp_message_out ""
+		set wsp_username ""
+		set wsp_username_length 0
+		set wsp_recv_message_length 0
+		set wsp_message_length 0
+		set wsp_uri_length 0
+		set original_request "http://\[HTTP::host\]\[HTTP::uri\]"
+		if { not \$disable_websense_lookups } {
+			foreach {a b c d} \[split \$_ipaddress .\] break
+			set wsp_dst_ip \[expr {(wide(\$a)<<24)+(\$b<<16)+(\$c<<8)+\$d}\]
+			binary scan \[string range \[ md5 \[ expr { \[info cmdcount\] * rand() } \] \] 0 3 \] H8 wsp_message_id
+			set wsp_message_request_header "\[binary format SSSH8 \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id\]"
+			set wsp_url_length \[string length \$original_request\]
+			set wsp_message_length \[expr { \[string length \$wsp_message_request_header\] + \[string length \$wsp_message_body\] + 2 } \]
+			set wsp_message_body "\[binary format SSIISa\${wsp_url_length}Sa\${wsp_username_length} 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]"
+			send -timeout 1000 -status wsp_send_status \$wsp_conn \[binary format SSSSH8SSIISa\${wsp_url_length}Sa\${wsp_username_length} \$wsp_message_length \$static::wsp_api_version_${tmsh::app_name} 0x0089 0x0000 \$wsp_message_id 0x0002 0x0000 \$wsp_src_ip \$wsp_dst_ip \$wsp_url_length \$original_request \$wsp_username_length \$wsp_username\]
+			set wsp_recv_data \[recv -status wsp_recv_status -timeout 50 \$wsp_conn \]
+			binary scan \$wsp_recv_data SSSSH8SSSSa* wsp_recv_length wsp_recv_version wsp_recv_type wsp_recv_flags wsp_recv_message_id wsp_recv_lookup_code wsp_recv_lookup_desc wsp_recv_category wsp_recv_message_length wsp_recv_message
+			if {\$wsp_recv_message_length > 0 } { binary scan \$wsp_recv_message a\${wsp_recv_message_length}S wsp_recv_message_out wsp_recv_null }
+			if { \[info exists wsp_recv_message_id\] } {
+				if { (\$wsp_message_id == \$wsp_recv_message_id) } {
+					if { \$wsp_recv_lookup_code > 0 } {
+						if { \[info exists wsp_recv_message_out\] } {
+							if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS (Blocked): Client \[IP::client_addr\] got blocked - http://\[HTTP::host\]\[HTTP::uri\]" }
+							clientside {
+								TCP::payload replace 0 0 ""
+								TCP::respond \$wsp_recv_message_out
+								TCP::close
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if { \$is_http && \$static::enable_logging_${tmsh::app_name} } {
+		set request_log_line "\[IP::client_addr\] -> \[HTTP::host\]:\$port \\"\[HTTP::method\] \$new_path HTTP/\[HTTP::version\]\\""
+	}
+
+}
+
+when HTTP_RESPONSE {
+
+	# When we've handled a response, take some specific requested actions,
+	# otherwise ignore it.
+
+	if { \$is_http && \$static::enable_logging_${tmsh::app_name} } {
+		append request_log_line " \[HTTP::status\] \[HTTP::payload length\]"
+		HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line\\n"
+	}
+}
+
+when SERVER_DATA {
+
+	# Normally, when we get server data, we want to release it. But if
+	# we're snooping an FTP transaction, we are interested in what the 
+	# PASV requests have to tell us about the next port to open. We 
+	# collect this data and put it into the in-memory table, assigned
+	# to the requesting client IP. 
+
+	# When the SOCKS request for that port is made by the client (and to
+	# the specific IP address as a destination), we'll dynamically map it
+	# and allow only that connection. This effectively locks high ports
+	# down to what we've observed and nothing else.
+
+	if { \[info exists handle_ftp\] && \[info exists ftp_initiated\] } {
+		if { \[TCP::payload\] starts_with "227" } {
+			scan \[string map {"," " "} \[getfield \[getfield \[TCP::payload\] "(" 2\] ")" 1\]\] "%s %s %s %s %s %s" a b c d porta portb
+			set pasv_ip "\$a.\$b.\$c.\$d"
+			set pasv_port \[expr { (\$porta * 256) + \$portb }\]
+			if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS\$socksver (Server): PASV Connection to \$pasv_ip:\$pasv_port - creating temporary unlock for \[IP::client_addr\]" }
+			table add -subtable pasv_ftp_connections_${tmsh::app_name} \$pasv_ip:\$pasv_port \[IP::client_addr\] indef indef
+		}
+		TCP::release
+		TCP::collect
+	} else {
+		serverside { TCP::release }
+	}
+}
+
+when SERVER_CLOSED {
+
+	# When the server connection is closed, take some actions, otherwise
+	# ignore that it happened.
+
+	if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS\$socksver (Server): Disconnected from \$_ipaddress:\$_port." }
+	if { \$is_https && \$static::enable_logging_${tmsh::app_name} } {
+		HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 200 -\\n"
+	}
+}
+
+when SERVER_CONNECTED {
+
+	# If we're in an FTP session, instead of releasing the connection,
+	# we want to snoop on it. So we hold on to the connection and see
+	# what the server has to say.
+
+	if { \[info exists handle_ftp\] } {
+		serverside {
+			set ftp_initiated 1
+			TCP::collect
+			return
+		}
+	}
+	if { \$is_https && \$static::enable_logging_${tmsh::app_name} } {
+		set request_log_line "\[IP::client_addr\] -> \$determined_host:\$_port \\"CONNECT \$determined_host:\$_port HTTP/1.1\\""
+	}
+
+	# When we connect outbound, we're going to copy the payload from
+	# one side to the other (serverside -> clientside).
+
+	if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS\$socksver (Server): Successfully connected to \$_ipaddress:\$_port." }
+	serverside { TCP::collect }
+	TCP::release
+}
+
+when CLIENT_CLOSED {
+
+	# Rid ourselves of the Websense established connection if we
+	# allocated one.
+
+	if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS\$socksver (Client): Disconnected from \$_ipaddress:\$_port." }
+	if { \$port_match_ftp_pasv } {
+		table delete -subtable pasv_ftp_connections_${tmsh::app_name} \$_ipaddress:\$_port
+		set port_match_ftp_pasv 0
+		if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS\$socksver (Client): Removing PASV entry for \$_ipaddress:\$_port" }
+	}
+	if { \$static::support_websense_${tmsh::app_name} && not \$disable_websense_lookups } {
+		close \$wsp_conn
+	}
+}
+
+when LB_FAILED {
+
+	# The remote system didn't respond, so we're going to close the
+	# connection, attempting to do it the "graceful" SOCKS way.
+
+	if { \$static::proxy_debug_${tmsh::app_name} } { log local0. "SOCKS\$socksver (Server): Did not connect to \$_ipaddress:\$_port. Rejecting." }
+	switch -- \$socksver {
+		"4" {
+			if { \$is_http && \$static::enable_logging_${tmsh::app_name} } {
+				HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 504 -\\n"
+			}
+			if { \$is_https && \$static::enable_logging_${tmsh::app_name} } {
+				HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 504 -\\n"
+			}
+			clientside { TCP::respond \[binary format H2H2H2H2H2H2H2H2 00 5b 00 00 00 00 00 00\] }
+				reject
+				return
+			}
+		"5" {
+			if { \[info exists socksremotehostlen\] } {
+				if { \$is_http && \$static::enable_logging_${tmsh::app_name} } {
+					HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 504 -\\n"
+				}
+				if { \$is_https && \$static::enable_logging_${tmsh::app_name} } {
+					HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 504 -\\n"
+				}
+				clientside { TCP::respond \[binary format H2H2H2cca\${socksremotehostlen}S 05 04 00 \$socksaddrtype \$socksremotehostlen \$socksremotehost \$socksremoteport \] }
+					reject
+					return
+			} else {
+				if { \$is_http && \$static::enable_logging_${tmsh::app_name} } {
+					HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 504 -\\n"
+				}
+				if { \$is_https && \$static::enable_logging_${tmsh::app_name} } {
+					HSL::send \$logging_handle "<\$\{static::facility_${tmsh::app_name}\}>\$request_log_line 504 -\\n"
+				}
+				clientside { TCP::respond \[binary format H2H2H2ciS 05 04 00 \$socksaddrtype \$socksremoteaddr \$socksremoteport \] }
+					reject
+					return
+				}
+			}
+		default {
+			reject
+			return
+		}
+	}
+}
+
+}
+
+###
+###  END OF SOCKS PROXY SUPPORT IRULE
+###
+####################################################################################################################
+
+	# Actually input the iRules here. When we input it, we're going to do
+	# a TCL subst call to process any variables in the script code that we
+	# need to replace.
+
+	tmsh::create / ltm rule "${tmsh::app_name}_explicit_proxy_config_irule" [subst $config_code]
+	if { $::enable_socks } {
+		tmsh::create / ltm rule "${tmsh::app_name}_socks_proxy_irule" [subst $socks_proxy_code]
+	}
+	if { $::enable_connect } {
+		tmsh::create / ltm rule "${tmsh::app_name}_explicit_proxy_irule" [subst $explicit_proxy_code]
+	}
+
+}
+
+
+proc collect_variables { } {
+
+	# IAPP SETUP
+
+	# Go through the user input and decide what we need to do.
+
+	if { $::websense__enable_websense == $::YES_ANSWER } {
+		puts "Enabling Websense support."
+		set ::enable_websense 1
+	} else {
+		set ::enable_websense 0
+	}
+	if { $::proxy__proxy_snat_large == $::YES_ANSWER } {
+		puts "Creating a SNAT pool."
+		set ::enable_snatpool 1
+	} else {
+		set ::enable_snatpool 0
+	}
+	if { $::security__proxy_access_control == $::YES_ANSWER } {
+		puts "Enabling Proxy access controls..."
+		set ::enable_acl 1
+	} else {
+		set ::enable_acl 0
+	}
+	if { [info exists ::proxy_autoconfig__enable_proxy_autoconfig] } {\
+		if { $::proxy_autoconfig__enable_proxy_autoconfig == $::YES_ANSWER } {
+			puts "Enabling Proxy autoconfiguration support."
+			set ::enable_pac 1
+		} else {
+			set ::enable_pac 0
+		}
+	} else {
+		set ::enable_pac 0
+	}
+	if { [info exists ::remote_logging__enable_logging] } {
+		if { $::remote_logging__enable_logging == $::YES_ANSWER } {
+			puts "Enabling remote logging."
+			set ::enable_logging 1
+		} else {
+			set ::enable_logging 0
+		}
+	} else {
+		set ::enable_logging 0
+	}
+	if { [info exists ::proxy__proxy_resolver_ttl] } {
+		set ::proxy_resolver_ttl $::proxy__proxy_resolver_ttl
+	} else {
+		set ::proxy_resolver_ttl 60
+	}
+	if { $::security__change_allowed_ports == $::YES_ANSWER } {
+		set http_port_table { }
+		foreach row $::security__allowed_ports_http {
+			array set columns [lindex $row 0]
+			lappend http_port_table "$columns(http_allow)"
+		}
+		set ::http_ports [join $http_port_table]
+		set https_port_table { }
+		foreach row $::security__allowed_ports_https {
+			array set columns [lindex $row 0]
+			lappend https_port_table "$columns(https_allow)"
+		}
+		set ::https_ports [join $https_port_table]
+		set ftp_port_table { }
+		foreach row $::security__allowed_ports_ftp {
+			array set columns [lindex $row 0]
+			lappend ftp_port_table "$columns(ftp_allow)"
+		}
+		set ::ftp_ports [join $ftp_port_table]
+	} else {
+		set ::http_ports { 80 }
+		set ::https_ports { 443 }
+		set ::ftp_ports { 21 }
+	}
+}
+
+proc create_websense_pool { } {
+
+	# WEBSENSE POOL
+
+	# Take user supplied input and make a pool of Websense servers to
+	# handle URL filter requests. Attach a custom monitor (see below).
+
+	set websense_server_table {}
+	foreach row $::websense__websense_servers {
+		array set columns [lindex $row 0]
+		lappend websense_server_table "$columns(websense_ipaddr):15868"
+	}
+	set ::websense_server_pool "proxy_websense_${tmsh::app_name}-pool"
+	tmsh::create / ltm pool $::websense_server_pool members replace-all-with \{ [join $websense_server_table] \}
+	tmsh::modify / ltm pool $::websense_server_pool monitor ${tmsh::app_name}_websense
+}
+
+proc create_websense_monitor { } {
+
+	# WEBSENSE MONITOR
+
+	# We want to make sure we only send queries to Websense servers that
+	# are actually ready to service requests. To do this, we create a 
+	# custom monitor that sends a crafted WISP request over to the server
+	# expecting to see a valid response.
+
+	# The encoded script below is put into the filesystem - it's a simple
+	# BASH script.
+
+set monitor_code {
+IyEvYmluL3NoCgpwaWRmaWxlPSIvdmFyL3J1bi8kTU9OSVRPUl9OQU1FLiQxLi4kMi5waWQiCgpp
+ZiBbIC1mICRwaWRmaWxlIF0KdGhlbgogICAgIGtpbGwgLTkgLWBjYXQgJHBpZGZpbGVgID4gL2Rl
+di9udWxsIDI+JjEKZmkKCmVjaG8gIiQkIiA+ICRwaWRmaWxlCgpub2RlX2lwPWBlY2hvICQxIHwg
+c2VkICdzLzo6ZmZmZjovLydgCgovYmluL2VjaG8gLW5lICJceDAwXHgwY1x4MDRceDIwXHgwMFx4
+ODBceDAwXHgwMFx4YWJceDkwXHgwMFx4MDEiIHwgL3Vzci9iaW4vbmMgJG5vZGVfaXAgJDIgMj4g
+L2Rldi9udWxsIHwgL3Vzci9iaW4veHhkIC1wcyAtcyArMTIgfCAvYmluL2dyZXAgLUUgLXEgIl4w
+MDAwLiokIiAKCmlmIFsgJD8gLWVxIDAgXQp0aGVuCiAgICBlY2hvICJ1cCIKZmkKCnJtIC1mICRw
+aWRmaWxlCg==
+}
+
+	exec echo "$monitor_code" | openssl enc -a -d > /config/monitors/${tmsh::app_name}_websense.sh
+	tmsh::create / sys file external-monitor ${tmsh::app_name}_websense_monitor source-path file:///config/monitors/${tmsh::app_name}_websense.sh
+	tmsh::create / ltm monitor external ${tmsh::app_name}_websense defaults-from external destination *:* interval 5 run /Common/${tmsh::app_name}.app/${tmsh::app_name}_websense_monitor timeout 16
+}
+
+proc configure_dns_resolver { } {
+
+	# DNS RESOLVER
+
+	# To provide support for looking up hostnames (required for both
+	# SOCKS 4A/5 and CONNECT), we have to have a place to send the
+	# queries. In order to ensure that we evenly query, we place all
+	# resolvers in a pool and then create a virtual on the proxy IP
+	# address to serve DNS.
+
+	set proxy_resolver_table {}
+	foreach row $::proxy__proxy_resolver {
+		array set columns [lindex $row 0]
+		lappend proxy_resolver_table "$columns(proxy_resolver_ip):53"
+	}
+	set proxy_resolver_pool "proxy_dns_${tmsh::app_name}-pool"
+	tmsh::create / ltm pool $proxy_resolver_pool members replace-all-with \{ [join $proxy_resolver_table] \}
+	tmsh::modify / ltm pool $proxy_resolver_pool monitor gateway_icmp
+	tmsh::create / ltm profile udp ${tmsh::app_name}_dns_udp defaults from udp datagram-load-balancing enabled idle-timeout 5
+	tmsh::create / ltm virtual ${tmsh::app_name}_dns_udp destination ${::proxy__proxy_ip}:53 profiles replace-all-with \{ ${tmsh::app_name}_dns_udp \} pool $proxy_resolver_pool snat automap
+	tmsh::create / ltm virtual ${tmsh::app_name}_dns_tcp destination ${::proxy__proxy_ip}:53 profiles replace-all-with \{ tcp \} pool $proxy_resolver_pool snat automap
+	set ::resolver_virtual "/Common/${tmsh::app_name}.app/${tmsh::app_name}_dns_udp"
+}
+
+proc configure_proxy_virtuals { } {
+
+	# PROXY VIRTUALS
+
+	# Once we've done everything else, we create the proxy virtual
+	# servers. To enable it to understand how to deal with CONNECT
+	# and Websense filtering, we need to attach an HTTP profile to
+	# it, although in SOCKS mode it remains disabled unless HTTP traffic
+	# is seen.
+
+	if { $::enable_socks } {
+		tmsh::create / ltm virtual ${tmsh::app_name}_proxy_socks destination ${::proxy__proxy_ip}:${::socks_port} profiles replace-all-with \{ tcp http \} $::snat rules \{ ${tmsh::app_name}_socks_proxy_irule \}
+	}
+	if { $::enable_connect } {
+		tmsh::create / ltm virtual ${tmsh::app_name}_proxy_connect destination ${::proxy__proxy_ip}:${::connect_port} profiles replace-all-with \{ tcp http \} $::snat rules \{ ${tmsh::app_name}_explicit_proxy_irule \}
+	}
+}
+
+proc create_acl_datagroup { } {
+
+	# PROXY ACL SECURITY
+
+	# If configured, we will use the created network datagroup to
+	# restrict who may use the proxy that's been created by the iApp.
+
+	set acl_datagroup_table {}
+	foreach row $::security__proxy_access_control_nets {
+		array set columns [lindex $row 0]
+		lappend acl_datagroup_table "$columns(proxy_access_control_network)/$columns(proxy_access_control_netmask) \{ \}"
+	}
+	set ::proxy_acl_datagroup_name "/Common/${tmsh::app_name}.app/${tmsh::app_name}-proxy-allowed-networks"
+	tmsh::create / ltm data-group internal ${tmsh::app_name}-proxy-allowed-networks type ip records replace-all-with \{ [join $acl_datagroup_table] \}
+}
+
+proc configure_proxy_autoconfig { } {
+
+	# PROXY AUTOCONFIG
+
+	# If PAC file support is enabled, collect the configuration
+	# information and stuff it into the variables used by the iRules.
+
+	# - Plain name (un-FQDN) hosts
+
+	if { $::proxy_autoconfig__proxy_autoconfig_plainname == $::YES_ANSWER } {
+		set ::enable_plainname 1
+	} else {
+		set ::enable_plainname 0
+	}
+
+	# - Network hosts/URI matches
+
+	set autoconfig_dn_table { }
+	foreach row $::proxy_autoconfig__proxy_autoconfig_dn {
+		array set columns [lindex $row 0]
+		lappend autoconfig_dn_table "\"$columns(proxy_autoconfig_networks)\""
+	}
+	set ::autoconfig_dn [join $autoconfig_dn_table]
+
+	# Handle the special case where Websense is enabled. For obvious
+	# reasons, we don't want traffic meant to be handled by Websense
+	# for block pages to be sent to the proxy for processing -- we want
+	# it to go direct. If Websense support is enabled, then the PAC file
+	# will automatically have those servers included in the Network
+	# section.
+
+	if { $::enable_websense } {
+		foreach row $::websense__websense_servers {
+			array set columns [lindex $row 0]
+			lappend ::autoconfig_dn "http://$columns(websense_ipaddr)*"
+		}
+	}
+
+	# - Bare domain matches
+
+	set autoconfig_dh_table { }
+	foreach row $::proxy_autoconfig__proxy_autoconfig_dh {
+		array set columns [lindex $row 0]
+		lappend autoconfig_dh_table "\"$columns(proxy_autoconfig_hostnames)\""
+	}
+	set ::autoconfig_dh [join $autoconfig_dh_table]
+}
+
+proc setup_snat {} {
+    if { $::proxy__proxy_snat_large == $::NO_ANSWER } {
+          set ::snat "snat automap"
+    } elseif { $::proxy__proxy_snat_large == $::YES_ANSWER } {
+          set members \{
+          foreach member $::proxy__proxy_snat_table {
+              append members [tmsh::get_field_value $member proxy_snat_address]
+              append members " "
+          }
+          append members \}
+          set snatpool_name "${tmsh::app_name}_snatpool"
+          tmsh_create "/ ltm snatpool" "$snatpool_name members replace-all-with $members"
+          set ::snat "snatpool $snatpool_name"
+     }
+}
+
+proc configure_explicit_proxy_deployment { } {
+
+	# MAIN ACTION LOOP
+
+	# Initialize certain variables to seed them into the iRule
+	# configuration later. These values will be used if the sections
+	# to which they apply are not iApp configured.
+
+	set ::websense_server_pool "null"
+	set ::proxy_acl_datagroup_name "null"
+	set ::enable_plainname 0
+	set ::autoconfig_dn { "*://10.*" "*://localhost" "*://127.0.0.1" }
+	set ::autoconfig_dh { "localhost" }
+
+	# iApp setup will proceed as follows (in order):
+	#  - Figure out what to enable
+	#  - Setup SNAT configuration/pools
+	#  - Create DNS resolver pool
+	#  - Create ACLs (if selected)
+	#  - Enable Websense (if selected) and enable monitoring of it
+	#  - Enable Proxy Autoconfig (if selected)
+	#  - Set up and seed iRules with iApp configuration information
+	#  - Create the proxy virtuals with the selected configuration
+
+	collect_variables
+	setup_snat
+	configure_dns_resolver
+	if { $::enable_acl } {
+		create_acl_datagroup
+	}
+	if { $::enable_websense } {
+		create_websense_monitor
+		create_websense_pool
+	}
+	if { $::enable_pac } {
+		configure_proxy_autoconfig
+	}
+	switch $::proxy__proxy_type {
+		"CONNECT Only" {
+			puts "Enabling CONNECT proxy only."
+			set ::enable_connect 1
+			set ::enable_socks 0
+			set ::connect_port $::proxy__proxy_port
+		}
+		"SOCKS Only" {
+			puts "Enabling SOCKS proxy only."
+			set ::enable_connect 0
+			set ::enable_socks 1
+			set ::connect_port 0
+			set ::socks_port $::proxy__proxy_port_socks
+		}
+		"CONNECT+SOCKS" {
+			puts "Enabling both CONNECT and SOCKS proxies."
+			set ::enable_connect 1
+			set ::enable_socks 1
+			set ::connect_port $::proxy__proxy_row__proxy_port
+			set ::socks_port $::proxy__proxy_row__proxy_port_socks
+		}
+	}
+	setup_irules
+	configure_proxy_virtuals	
+}
+
+puts " "
+puts "Starting Explicit Proxy Template..."
+puts " "
+puts "Application name: $tmsh::app_name"
+
+	# Determine whether the chosen iApp name is safe to use. 
+	# We don't want to create a name with unusable characters!
+
+if { [tmsh::run_proc f5.app_utils:is_safe_app_name "\"$tmsh::app_name\""] != true } {
+    puts "The app template name contained illegal characters."
+    error "The app template name contained illegal characters."
+}
+
+	# Start the main loop
+
+configure_explicit_proxy_deployment
+
+puts " "
+puts "Finished Explicit Proxy Template..."
+puts " "
+            }
+            presentation {
+                ####################################
+## FORWARD PROXY IAPP PRESENTATION
+##
+
+section welcome {
+	message welcome "This iApp creates an explicit forwarding proxy."
+	message welcome1 "You can use this template to create and manage an HTTP CONNECT, a SOCKS 4/4A/5 proxy, or both types simultaneously."
+	message welcome2 "At this time, this proxy functionality is ANONYMOUS. Support for authenticated proxy connections will be added in a future release."
+}
+section advanced_options {
+	choice enable_advanced_options display "small" default "No" {"Yes", "No"}
+}
+section proxy {
+	string proxy_ip required validator "IpAddress"
+	choice proxy_type display "xlarge" default "CONNECT Only" {"CONNECT Only", "SOCKS Only", "CONNECT+SOCKS"}
+	optional (proxy_type == "SOCKS Only") {
+		string proxy_port_socks required default "1080" validator "PortNumber"
+	}
+	optional (proxy_type == "CONNECT Only") {
+		string proxy_port required default "80" validator "PortNumber"
+	}
+	optional (proxy_type == "CONNECT+SOCKS") {
+		row proxy_row { 
+			string proxy_port required default "80" validator "PortNumber"
+			string proxy_port_socks required default "1080" validator "PortNumber"
+		}
+	}
+	table proxy_resolver {
+		string proxy_resolver_ip required validator "IpAddress"
+	}
+	optional (advanced_options.enable_advanced_options == "Yes") {
+		choice proxy_snat_large display "small" default "No" {"Yes", "No"}
+	}
+	optional (proxy_snat_large == "Yes") {
+		table proxy_snat_table {
+			string proxy_snat_address validator "IpAddress"
+		} 
+	}
+	optional (advanced_options.enable_advanced_options == "Yes") {
+		string proxy_resolver_ttl default "60" validator "Number"
+	}
+	optional (advanced_options.enable_advanced_options == "Yes") {
+		choice proxy_enable_debug display "small" default "No" {"Yes", "No"}
+	}
+}
+section security {
+	choice proxy_access_control display "small" default "No" {"Yes", "No"}
+	optional (proxy_access_control == "Yes") {
+		table proxy_access_control_nets {
+			string proxy_access_control_network default "10.0.0.0" validator "IpAddress"
+			string proxy_access_control_netmask display "small" default "8" validator "NonNegativeNumber"
+		}
+	}
+	choice change_allowed_ports display "small" default "No" {"Yes", "No"}
+	optional (change_allowed_ports == "Yes") {
+		table allowed_ports_http {
+			string http_allow required display "small" default "80" validator "PortNumber"
+		}
+		table allowed_ports_https {
+			string https_allow required display "small" default "443" validator "PortNumber"
+		}
+		table allowed_ports_ftp {
+			string ftp_allow required display "small" default "21" validator "PortNumber"
+		}
+	}
+}
+section websense {
+	choice enable_websense display "small" default "No" {"Yes", "No"}
+	optional (enable_websense == "Yes") {
+		message websense_info "Enter the addresses of all the Websense servers in your infrastructure that can process filtering requests. This can include any Websense server type, as long as it has the Filtering Engine enabled."
+		table websense_servers {
+			string websense_ipaddr required validator "IpAddress"
+		}
+	}
+}
+section proxy_autoconfig {
+	optional (advanced_options.enable_advanced_options == "No") {
+		message not_valid "This section is only available through enabling Advanced Options."
+	}
+	optional (advanced_options.enable_advanced_options == "Yes") {
+		message proxy_autoconfig_warning "INCORRECTLY CONFIGURING CAN CAUSE OUTAGES! Please be careful when configuring the following sections, and be sure to check the generated PAC file once you've completed configuration but before you deploy it to your installed base of browser clients."
+		choice enable_proxy_autoconfig display "small" default "No" {"Yes", "No"}
+	}
+	optional (enable_proxy_autoconfig == "Yes") {
+		choice proxy_autoconfig_plainname display "small" default "Yes" {"Yes", "No"}
+		message proxy_autoconfig_dn_info "You may configure what network addresses or URL schemes will bypass the proxy and go directly to the discovered host. See the Help section for more information."
+		table proxy_autoconfig_dn {
+			string proxy_autoconfig_networks display "xlarge" default "*://127.0.0.1"
+		}
+		message proxy_autoconfig_dh_info "You may configure what hostnames or domains will bypass the proxy and go directly to the discovered host. See the Help section for more information."
+		table proxy_autoconfig_dh {
+			string proxy_autoconfig_hostnames display "xlarge" default "localhost"
+		}
+	}
+}
+# FUTURE IMPLEMENTATION
+#section remote_logging {
+#     optional (advanced_options.enable_advanced_options == "No") {
+#           message not_valid "This section is only available through enabling Advanced Options."
+#     }
+#     optional (advanced_options.enable_advanced_options == "Yes") {
+#           choice enable_logging display "small" default "No" {"Yes", "No"}
+#           optional (enable_logging == "Yes") {
+#                 message logging_info "This functionality only supports Syslog at this time. Okay?"
+#                 table logging_destinations {
+#                       string logging_ipaddr required validator "IpAddress"
+#                       string logging_port default "514" display "small" validator "PortNumber"
+#                 }
+#          }
+#     }
+#}
+
+text {
+	welcome "Introduction"
+	welcome.welcome "iProxy iApp Version 1.0"
+	welcome.welcome1 ""
+	welcome.welcome2 ""
+
+	advanced_options "Advanced Options"
+	advanced_options.enable_advanced_options "Do you want to enable advanced options?"
+
+	proxy "Proxy Configuration"
+	proxy.proxy_row "Ports"
+	proxy.proxy_ip "Virtual Server IP Address"
+	proxy.proxy_port "CONNECT Port"
+	proxy.proxy_port_socks "SOCKS Port"
+	proxy.proxy_row.proxy_port "CONNECT Port"
+	proxy.proxy_row.proxy_port_socks "SOCKS Port"
+	proxy.proxy_type "Proxy Type"
+	proxy.proxy_snat_large "Enable Large Proxy Population Support"
+	proxy.proxy_snat_table "Enter the external IP source addresses you wish to assign to outgoing traffic. These addresses should belong to your external VLAN's network."
+	proxy.proxy_snat_table.proxy_snat_address "IP Address"
+	proxy.proxy_resolver "DNS Resolvers"
+	proxy.proxy_resolver_ttl "Lifetime (in Seconds) of entries in the proxy DNS Cache"
+	proxy.proxy_enable_debug "Do you want to enable proxy debug logging?"
+	proxy.proxy_resolver.proxy_resolver_ip "DNS Server IP Address:"
+
+	proxy_autoconfig "Proxy Autoconfiguration Support"
+	proxy_autoconfig.not_valid "Note:"
+	proxy_autoconfig.proxy_autoconfig_warning "Note:"
+	proxy_autoconfig.enable_proxy_autoconfig "Do you want to respond to proxy autoconfiguration requests?"
+	proxy_autoconfig.proxy_autoconfig_plainname "Do you want plain names (e.g. unqualified domain names) to bypass the proxy?"
+	proxy_autoconfig.proxy_autoconfig_dn_info "Which URI scheme matches do you want to bypass the proxy?"
+	proxy_autoconfig.proxy_autoconfig_dn ""
+	proxy_autoconfig.proxy_autoconfig_dn.proxy_autoconfig_networks ""
+	proxy_autoconfig.proxy_autoconfig_dh_info "Which hostnames do you want to bypass the proxy?"
+	proxy_autoconfig.proxy_autoconfig_dh ""
+	proxy_autoconfig.proxy_autoconfig_dh.proxy_autoconfig_hostnames ""
+
+	security "Security and Access Control"
+	security.proxy_access_control "Do you want to define which NETWORKS can use the services of this proxy?"
+	security.proxy_access_control_nets "Networks to Allow"
+	security.proxy_access_control_nets.proxy_access_control_network "Network:"
+	security.proxy_access_control_nets.proxy_access_control_netmask "CIDR Netmask:"
+	security.change_allowed_ports "Do you want to change or add to the default allowed PORTS on the proxy for each supported protocol? (Not Recommended)"
+	security.allowed_ports_http "What ports should the proxy allow to HTTP sites?"
+	security.allowed_ports_https "What ports should the proxy allow to HTTPS (SSL) sites?"
+	security.allowed_ports_ftp "What ports should the proxy allow to FTP sites?"
+	security.allowed_ports_http.http_allow ""
+	security.allowed_ports_https.https_allow ""
+	security.allowed_ports_ftp.ftp_allow ""
+
+	websense "URL Filtering and Inspection"
+	websense.enable_websense "Do you want to enable Websense URL filtering support?"
+	websense.websense_info "Instructions"
+	websense.websense_servers "Remote Websense Filtering Servers"
+	websense.websense_servers.websense_ipaddr "Server IP:"
+
+	#remote_logging "Remote Logging"
+	#remote_logging.not_valid "Note:"
+	#remote_logging.enable_logging "Do you want to enable remote logging of connection activity through this proxy?"
+	#remote_logging.logging_info "Instructions"
+	#remote_logging.logging_destinations "Remote Syslog Servers"
+	#remote_logging.logging_destinations.logging_ipaddr "Server IP:"
+	#remote_logging.logging_destinations.logging_port "Port:"
+}
+            }
+            role-acl none
+            run-as none
+        }
+    }
+    description none
+    requires-bigip-version-max none
+    requires-bigip-version-min 11.1
+    requires-modules { ltm }
+}
